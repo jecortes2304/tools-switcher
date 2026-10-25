@@ -1,0 +1,128 @@
+name: Desktop builds and releases
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: go.mod
+      - id: version
+        run: go run ./cmd/ci preflight
+        env:
+          UPDATER_PUBLIC_KEY_BASE64: ${{ vars.UPDATER_PUBLIC_KEY_BASE64 }}
+          UPDATER_PRIVATE_KEY_BASE64: ${{ secrets.UPDATER_PRIVATE_KEY_BASE64 }}
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      - if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo "::error::La versión v$RELEASE_VERSION ya existe. Incrementa VERSION antes de publicar."
+            exit 1
+          fi
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            platform: windows
+          - os: macos-15
+            platform: darwin
+          - os: ubuntu-24.04
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      UPDATER_PUBLIC_KEY_BASE64: ${{ vars.UPDATER_PUBLIC_KEY_BASE64 }}
+      GOARCH: ${{ matrix.platform == 'darwin' && 'arm64' || 'amd64' }}
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+      GIT_COMMITTER_NAME: CorteStudios
+      GIT_COMMITTER_EMAIL: jecortes2304@users.noreply.github.com
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev build-essential pkg-config libfuse2t64 rpm
+      - if: runner.os == 'Windows' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
+      - run: npm --prefix frontend ci
+      - run: wails3 generate bindings -ts -i
+      - run: npm --prefix frontend run build
+      - run: go test ./...
+      - run: go vet ./...
+      - run: go run ./cmd/ci build
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ matrix.platform == 'windows' && secrets.WINDOWS_CERTIFICATE_BASE64 || '' }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ matrix.platform == 'windows' && secrets.WINDOWS_CERTIFICATE_PASSWORD || '' }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: desktop-${{ matrix.platform }}-${{ env.GOARCH }}
+          path: artifacts/
+          retention-days: 15
+          if-no-files-found: error
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: desktop-*
+          path: artifacts
+          merge-multiple: true
+      - run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
+      - run: go run ./cmd/ci release
+        env:
+          UPDATER_PUBLIC_KEY_BASE64: ${{ vars.UPDATER_PUBLIC_KEY_BASE64 }}
+          UPDATER_PRIVATE_KEY_BASE64: ${{ secrets.UPDATER_PRIVATE_KEY_BASE64 }}
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release create "v$RELEASE_VERSION" --target "$GITHUB_SHA" --title "tools-switcher $RELEASE_VERSION" --draft --generate-notes
+          gh release upload "v$RELEASE_VERSION" artifacts/updates/* artifacts/packages/* artifacts/manifest.json artifacts/SHA256SUMS
+          gh release edit "v$RELEASE_VERSION" --notes-file docs/release-notes.md
+          gh release edit "v$RELEASE_VERSION" --draft=false --latest
+
