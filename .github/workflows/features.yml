@@ -1,0 +1,58 @@
+name: Feature validation
+on:
+  push:
+    branches-ignore: [main, develop]
+  pull_request:
+    branches: [develop, main]
+permissions:
+  contents: read
+concurrency:
+  group: feature-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev build-essential pkg-config
+      - run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16
+      - run: npm --prefix frontend ci
+      - run: wails3 generate bindings -ts -i
+      - run: npm --prefix frontend run format:check
+      - run: npm --prefix frontend run build
+      - if: runner.os == 'Windows'
+        run: npm --prefix frontend exec playwright install chromium
+      - if: runner.os == 'Windows'
+        run: npm --prefix frontend run test:ui
+      - run: go test ./...
+      - run: go test -race ./internal/...
+        env:
+          CGO_ENABLED: '1'
+      - run: go vet ./...
+      - run: go build -o bin/tools-switcher.exe .
+      - if: runner.os == 'Windows'
+        run: git archive --format=zip --output=source.zip HEAD
+      - if: runner.os == 'Windows'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: source-${{ github.sha }}
+          path: source.zip
+          retention-days: 15
+          if-no-files-found: error
+

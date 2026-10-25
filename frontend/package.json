@@ -1,24 +1,29 @@
 {
-  "name": "react-ts-latest",
+  "name": "tools-switcher",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build:dev": "tsc && vite build --minify false --mode development",
     "build": "tsc && vite build --mode production",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:ui": "node tests/ui.mjs",
+    "format": "prettier --write src tests index.html vite.config.ts package.json",
+    "format:check": "prettier --check src tests index.html vite.config.ts package.json"
   },
   "dependencies": {
-    "@wailsio/runtime": "latest",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "@wailsio/runtime": "3.0.0-beta.34",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@vitejs/plugin-react": "^6.0.0",
-    "typescript": "^5.2.2",
-    "vite": "^8.0.5"
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "6.1.2",
+    "playwright": "1.62.1",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vite": "8.3.5"
   }
 }
