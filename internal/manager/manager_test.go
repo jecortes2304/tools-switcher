@@ -358,3 +358,35 @@ func TestCorruptStatePreserved(t *testing.T) {
 		t.Fatal("corrupt state was overwritten")
 	}
 }
+
+func TestManagedInstallThroughVaultAlias(t *testing.T) {
+	m := newTestManager(t)
+	root := t.TempDir()
+	real := filepath.Join(root, "real-vault")
+	alias := filepath.Join(root, "alias-vault")
+	if err := os.Mkdir(real, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, alias); err != nil {
+		t.Skip("directory aliases unavailable: " + err.Error())
+	}
+	file := filepath.Join(root, "jdk.zip")
+	if err := os.WriteFile(file, jdkZip(t), 0600); err != nil {
+		t.Fatal(err)
+	}
+	p := Package{ID: "alias-install", Name: "Test JDK", Filename: "jdk.zip", LocalPath: file, OS: runtime.GOOS, Arch: runtime.GOARCH}
+	if err := m.install(context.Background(), p, alias); err != nil {
+		t.Fatal(err)
+	}
+	installation := m.Snapshot().Installations[0]
+	canonical, err := filepath.EvalSymlinks(installation.ManagedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !samePath(canonical, installation.ManagedRoot) {
+		t.Fatal("managed root was not canonicalized")
+	}
+	if err = m.RemoveInstallation(installation.ID, true); err != nil {
+		t.Fatal(err)
+	}
+}

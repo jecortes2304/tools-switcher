@@ -253,7 +253,7 @@ func inside(root, target string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 func archiveTarget(root, name string) (string, error) {
-	if strings.ContainsAny(name, "\\:") || strings.HasPrefix(name, "/") {
+	if !filepath.IsLocal(filepath.FromSlash(name)) || strings.ContainsAny(name, "\\:") || strings.HasPrefix(name, "/") {
 		return "", errors.New("ruta no segura en archivo")
 	}
 	target := filepath.Join(root, filepath.FromSlash(name))
