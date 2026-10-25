@@ -132,6 +132,10 @@ func (m *Manager) install(ctx context.Context, p Package, vault string) error {
 	if err := os.MkdirAll(vault, 0700); err != nil {
 		return err
 	}
+	vault, err := filepath.EvalSymlinks(vault)
+	if err != nil {
+		return err
+	}
 	staging, err := os.MkdirTemp(vault, ".staging-")
 	if err != nil {
 		return err
