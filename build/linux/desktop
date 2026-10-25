@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=A jswitcher application
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/jswitcher.exe %u
+Terminal=false
+Type=Application
+Icon=jswitcher.exe
+Categories=Utility;
+StartupWMClass=jswitcher.exe
+
+ 
