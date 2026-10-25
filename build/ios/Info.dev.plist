@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>jswitcher.exe</string>
+    <string>tools-switcher.exe</string>
     <key>CFBundleIdentifier</key>
-    <string>com.cortestudios.jswitcher.dev</string>
+    <string>com.cortestudios.tools-switcher.dev</string>
     <key>CFBundleName</key>
     <string>My Product (Dev)</string>
     <key>CFBundleDisplayName</key>

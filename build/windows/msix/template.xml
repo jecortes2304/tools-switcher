@@ -8,7 +8,7 @@
         AllowPromptForPassword="false">
     </Settings>
     <Installer
-        Path="jswitcher.exe"
+        Path="tools-switcher.exe"
         Arguments=""
         InstallLocation="C:\Program Files\CorteStudios\My Product">
     </Installer>
@@ -18,17 +18,17 @@
         PublisherName="CN=CorteStudios"
         PublisherDisplayName="CorteStudios"
         Version="0.1.0.0"
-        PackageDescription="A jswitcher application">
+        PackageDescription="A tools-switcher application">
         <Capabilities>
             <Capability Name="runFullTrust" />
             
         </Capabilities>
         <Applications>
             <Application
-                Id="com.cortestudios.jswitcher"
-                Description="A jswitcher application"
+                Id="com.cortestudios.tools-switcher"
+                Description="A tools-switcher application"
                 DisplayName="My Product"
-                ExecutableName="jswitcher.exe"
+                ExecutableName="tools-switcher.exe"
                 EntryPoint="Windows.FullTrustApplication">
                 
             </Application>
@@ -43,11 +43,11 @@
             <Framework>false</Framework>
             <DisplayName>My Product</DisplayName>
             <PublisherDisplayName>CorteStudios</PublisherDisplayName>
-            <Description>A jswitcher application</Description>
+            <Description>A tools-switcher application</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
-    <SaveLocation PackagePath="jswitcher.msix" />
+    <SaveLocation PackagePath="tools-switcher.msix" />
     <PackageIntegrity>
         <CertificatePath></CertificatePath>
     </PackageIntegrity>

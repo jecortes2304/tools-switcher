@@ -5,7 +5,7 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "jswitcher"
+    !define INFO_PROJECTNAME "tools-switcher"
 !endif
 !ifndef INFO_COMPANYNAME
     !define INFO_COMPANYNAME "CorteStudios"
