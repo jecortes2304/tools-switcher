@@ -53,7 +53,22 @@ func writeWindowsVariable(name, value string, exists bool) error {
 	if err != nil {
 		return err
 	}
-	if exists {
+	if strings.EqualFold(name, "path") {
+		effective := value
+		machine, e := registry.OpenKey(registry.LOCAL_MACHINE, `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`, registry.QUERY_VALUE)
+		if e == nil {
+			systemPath, _, readErr := machine.GetStringValue("Path")
+			machine.Close()
+			if readErr == nil && systemPath != "" {
+				if effective != "" {
+					effective = systemPath + ";" + effective
+				} else {
+					effective = systemPath
+				}
+			}
+		}
+		_ = os.Setenv("Path", expandWindows(effective))
+	} else if exists {
 		_ = os.Setenv(name, value)
 	} else {
 		_ = os.Unsetenv(name)
