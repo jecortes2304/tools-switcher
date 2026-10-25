@@ -6,9 +6,9 @@
 		"0000": {
 			"ProductVersion": "0.1.0",
 			"CompanyName": "CorteStudios",
-			"FileDescription": "A tools-switcher application",
-			"LegalCopyright": "© 2026, CorteStudios",
-			"ProductName": "My Product",
+			"FileDescription": "Gestiona tus herramientas de desarrollo",
+			"LegalCopyright": "Copyright 2026 CorteStudios",
+			"ProductName": "tools-switcher",
 			"Comments": "This is a comment"
 		}
 	}
