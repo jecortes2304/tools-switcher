@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
-Name=My Product
-Comment=A tools-switcher application
+Name=tools-switcher
+Comment=Gestiona tus herramientas de desarrollo
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/tools-switcher.exe %u
+Exec=/usr/local/bin/tools-switcher %u
 Terminal=false
 Type=Application
-Icon=tools-switcher.exe
+Icon=tools-switcher
 Categories=Utility;
-StartupWMClass=tools-switcher.exe
+StartupWMClass=tools-switcher
 
  
