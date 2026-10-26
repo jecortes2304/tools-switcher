@@ -11,22 +11,26 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 	"time"
 )
 
 type Manager struct {
-	mu       sync.Mutex
-	state    State
-	file     string
-	client   *http.Client
-	jobs     map[string]*Download
-	cancels  map[string]context.CancelFunc
-	packages map[string]Package
-	slots    chan struct{}
-	ctx      context.Context
-	cancel   context.CancelFunc
-	workers  sync.WaitGroup
+	githubBase   string
+	discoBase    string
+	correttoBase string
+	mu           sync.Mutex
+	state        State
+	file         string
+	client       *http.Client
+	jobs         map[string]*Download
+	cancels      map[string]context.CancelFunc
+	packages     map[string]Package
+	slots        chan struct{}
+	ctx          context.Context
+	cancel       context.CancelFunc
+	workers      sync.WaitGroup
 }
 
 func New(configDir string) (*Manager, error) {
@@ -38,7 +42,7 @@ func New(configDir string) (*Manager, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	m := &Manager{file: filepath.Join(configDir, "state.json"), jobs: map[string]*Download{}, cancels: map[string]context.CancelFunc{}, packages: map[string]Package{}, slots: make(chan struct{}, 3), ctx: ctx, cancel: cancel, client: &http.Client{Timeout: 30 * time.Second, CheckRedirect: secureRedirect}}
+	m := &Manager{githubBase: "https://api.github.com", discoBase: "https://api.foojay.io/disco/v3.0", correttoBase: "https://corretto.aws/downloads", file: filepath.Join(configDir, "state.json"), jobs: map[string]*Download{}, cancels: map[string]context.CancelFunc{}, packages: map[string]Package{}, slots: make(chan struct{}, 3), ctx: ctx, cancel: cancel, client: &http.Client{Timeout: 30 * time.Second, CheckRedirect: secureRedirect}}
 	m.state = State{SchemaVersion: 1, Settings: Settings{Theme: "dark", Vault: filepath.Join(home, ".tools-switcher", "vault"), CloseToTray: true, AutoCheckUpdates: true}, Repositories: []Repository{}, Installations: []Installation{}, Bindings: []Binding{}}
 	data, err := os.ReadFile(m.file)
 	if err == nil {
@@ -53,6 +57,13 @@ func New(configDir string) (*Manager, error) {
 	} else if !os.IsNotExist(err) {
 		cancel()
 		return nil, err
+	}
+	changed := m.seedProviders()
+	if os.IsNotExist(err) || changed {
+		if saveErr := m.saveLocked(); saveErr != nil {
+			cancel()
+			return nil, saveErr
+		}
 	}
 	return m, nil
 }
@@ -134,6 +145,7 @@ func (m *Manager) Snapshot() Snapshot {
 	for _, j := range m.jobs {
 		s.Downloads = append(s.Downloads, *j)
 	}
+	sort.Slice(s.Downloads, func(i, j int) bool { return s.Downloads[i].ID < s.Downloads[j].ID })
 	return s
 }
 
@@ -147,4 +159,26 @@ func secureRedirect(req *http.Request, via []*http.Request) error {
 		return errors.New("se requiere HTTPS")
 	}
 	return nil
+}
+
+func (m *Manager) PreferencesFile() string { return m.file }
+func (m *Manager) EnsurePreferencesFile() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, err := os.Stat(m.file); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	return m.saveLocked()
+}
+func (m *Manager) DescribeHome(home string) string {
+	if home == "" {
+		return ""
+	}
+	installation, err := inspectHome(home)
+	if err != nil {
+		return "JDK externa"
+	}
+	return installation.Name
 }

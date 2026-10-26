@@ -239,7 +239,7 @@ func (m *Manager) Discover() ([]Installation, error) {
 	if runtime.GOOS == "windows" {
 		roots = append(roots, filepath.Join(os.Getenv("ProgramFiles"), "Java"), filepath.Join(os.Getenv("ProgramFiles"), "Eclipse Adoptium"), filepath.Join(os.Getenv("ProgramFiles"), "Microsoft"), `C:\Java`)
 	} else if runtime.GOOS == "darwin" {
-		roots = append(roots, "/Library/Java/JavaVirtualMachines")
+		roots = append(roots, "/Library/Java/JavaVirtualMachines", filepath.Join(home, "Library", "Java", "JavaVirtualMachines"), "/opt/homebrew/opt/openjdk", "/usr/local/opt/openjdk")
 	} else {
 		roots = append(roots, "/usr/lib/jvm", "/opt/java")
 	}
@@ -252,7 +252,11 @@ func (m *Manager) Discover() ([]Installation, error) {
 		if info, e := os.Stat(root); e != nil || !info.IsDir() {
 			continue
 		}
-		homes, e := findHomes(root)
+		canonicalRoot, resolveErr := filepath.EvalSymlinks(root)
+		if resolveErr != nil {
+			continue
+		}
+		homes, e := findHomes(canonicalRoot)
 		if e != nil {
 			continue
 		}

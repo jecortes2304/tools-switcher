@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Clipboard } from '@wailsio/runtime'
 import {
   api,
   type Run,
@@ -84,6 +85,28 @@ export function Settings({
         </button>
       </section>
       <section className="panel">
+        <h2>Archivo de preferencias</h2>
+        <p className="hint">
+          Localiza state.json para guardar una copia de tus preferencias, fuentes e instalaciones.
+        </p>
+        <p className="mono wrap inset">{snapshot.preferencesFile}</p>
+        <div className="row">
+          <button className="grow" onClick={() => run(() => api.ShowPreferencesFile())}>
+            ▱ Mostrar archivo de preferencias
+          </button>
+          <button
+            aria-label="Copiar ruta de preferencias"
+            onClick={() => run(() => Clipboard.SetText(snapshot.preferencesFile), 'Ruta copiada')}
+          >
+            ⧉
+          </button>
+        </div>
+        <p className="hint">
+          Para sustituirlo por una copia anterior, sal completamente desde la bandeja antes de
+          reemplazarlo y vuelve a abrir la aplicación.
+        </p>
+      </section>
+      <section className="panel">
         <h2>Comportamiento</h2>
         <Toggle
           label="Iniciar con el sistema"
@@ -111,11 +134,28 @@ export function Settings({
           <dd>
             {snapshot.platform} · {snapshot.architecture}
           </dd>
-          <dt>JAVA_HOME del usuario</dt>
+          <dt>
+            JAVA_HOME detectado ·{' '}
+            {{ user: 'Usuario', system: 'Sistema', session: 'Sesión' }[snapshot.activeSource] ??
+              'Sin configurar'}
+          </dt>
           <dd className="mono wrap">{snapshot.activePath || 'Sin configurar'}</dd>
           <dt>Java resuelto por PATH</dt>
           <dd className="mono wrap">{snapshot.resolvedJava || 'No encontrado'}</dd>
         </dl>
+        {snapshot.environment?.map((variable) => (
+          <div className="environment-detail" key={variable.name}>
+            <strong className="mono">{variable.name}</strong>
+            <p className="mono wrap">{variable.value || 'Sin configurar'}</p>
+            {variable.error && <p className="error-message">{variable.error}</p>}
+            {variable.systemValue && variable.systemValue !== variable.value && (
+              <small className="wrap">Sistema: {variable.systemValue}</small>
+            )}
+            {variable.processValue && variable.processValue !== variable.value && (
+              <small className="wrap">La sesión de la app conserva: {variable.processValue}</small>
+            )}
+          </div>
+        ))}
         <p className="hint">
           Abre una terminal nueva después de cambiar variables. En Windows, otras entradas del PATH
           del sistema pueden tener prioridad.

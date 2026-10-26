@@ -29,6 +29,7 @@ func newTestManager(t *testing.T) *Manager {
 		t.Fatal(err)
 	}
 	m.state.Settings.Vault = filepath.Join(t.TempDir(), "vault")
+	m.state.Repositories = []Repository{}
 	t.Cleanup(m.Close)
 	return m
 }

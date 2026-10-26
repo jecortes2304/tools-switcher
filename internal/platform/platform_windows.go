@@ -14,6 +14,9 @@ import (
 
 func init() {
 	ReadVariable = readWindowsVariable
+	ExpandVariableValue = expandWindows
+	ReadSystemVariable = readWindowsSystemVariable
+	EnvironmentNames = windowsEnvironmentNames
 	WriteVariable = writeWindowsVariable
 	SetAutostart = windowsAutostart
 	ResolvedJava = windowsResolvedJava
@@ -98,14 +101,46 @@ func windowsAutostart(enabled bool) error {
 	return key.SetStringValue("tools-switcher", "\""+executable+"\" --background")
 }
 func expandWindows(value string) string {
-	for _, entry := range os.Environ() {
-		key, v, ok := strings.Cut(entry, "=")
-		if ok {
-			value = strings.ReplaceAll(value, "%"+key+"%", v)
-			value = strings.ReplaceAll(value, "%"+strings.ToUpper(key)+"%", v)
+	expanded, err := registry.ExpandString(value)
+	if err != nil {
+		return value
+	}
+	return expanded
+}
+
+func readWindowsSystemVariable(name string) (string, bool, error) {
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`, registry.QUERY_VALUE)
+	if errors.Is(err, registry.ErrNotExist) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	defer key.Close()
+	value, _, err := key.GetStringValue(name)
+	if errors.Is(err, registry.ErrNotExist) {
+		return "", false, nil
+	}
+	return value, err == nil, err
+}
+
+func windowsEnvironmentNames() []string {
+	names := []string{}
+	for _, location := range []struct {
+		root registry.Key
+		path string
+	}{{registry.CURRENT_USER, "Environment"}, {registry.LOCAL_MACHINE, `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`}} {
+		key, err := registry.OpenKey(location.root, location.path, registry.QUERY_VALUE)
+		if err != nil {
+			continue
+		}
+		values, err := key.ReadValueNames(-1)
+		key.Close()
+		if err == nil {
+			names = append(names, values...)
 		}
 	}
-	return value
+	return names
 }
 func windowsResolvedJava() string {
 	var entries []string

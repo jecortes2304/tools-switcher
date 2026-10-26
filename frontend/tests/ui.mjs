@@ -27,6 +27,7 @@ const state = {
   },
   repositories: [
     {
+      providerId: 'temurin',
       id: 'temurin',
       name: 'Eclipse Temurin',
       kind: 'adoptium',
@@ -63,11 +64,24 @@ const state = {
     },
   ],
   downloads: [],
+  preferencesFile: 'C:/Users/Developer/AppData/Roaming/tools-switcher/state.json',
+  activeSource: 'system',
+  activeName: 'Eclipse Temurin 21.0.9',
+  environment: [],
   activePath: 'C:\\Java\\temurin-21',
   resolvedJava: 'C:\\Java\\temurin-21\\bin\\java.exe',
   platform: 'windows',
   architecture: 'amd64',
 }
+state.repositories.push({
+  ...state.repositories[0],
+  id: 'oracle',
+  providerId: 'oracle',
+  name: 'Oracle JDK',
+  kind: 'foojay',
+  enabled: false,
+})
+let preferencesShown = false
 let queued = []
 const errors = []
 const server = createServer(async (req, res) => {
@@ -81,7 +95,7 @@ const server = createServer(async (req, res) => {
       let result = null
       if (method === 'Snapshot') result = state
       else if (method === 'Version') result = '0.1.0'
-      else if (method === 'Versions') result = [25, 21, 17, 11, 8]
+      else if (method === 'RepositoryVersions') result = [25, 21, 17, 11, 8]
       else if (method === 'Catalog')
         result = [
           {
@@ -95,6 +109,9 @@ const server = createServer(async (req, res) => {
           },
         ]
       else if (method === 'Queue') queued = args[0]
+      else if (method === 'ShowPreferencesFile') preferencesShown = true
+      else if (method === 'ToggleRepository')
+        state.repositories.find((r) => r.id === args[0]).enabled = args[1]
       else if (method === 'SaveSettings') state.settings = args[0]
       else if (method === 'Activate')
         state.activePath = state.installations.find((i) => i.id === args[0]).path
@@ -105,6 +122,7 @@ const server = createServer(async (req, res) => {
         state.repositories.push({
           ...state.repositories[0],
           id: 'custom',
+          providerId: '',
           name: args[0] || 'Mi repositorio',
           source: args[1],
         })
@@ -169,19 +187,36 @@ try {
   await page.locator('dialog').waitFor({ state: 'detached' })
   assert.deepEqual(queued.sort(), ['package-17', 'package-21'])
   await page.getByRole('button', { name: 'Repositorios', exact: true }).click()
-  await page.getByRole('heading', { name: 'Añadir un catálogo' }).waitFor()
+  await page.getByRole('heading', { name: 'Proveedores incluidos' }).waitFor()
+  await page.getByLabel('Proveedor', { exact: true }).selectOption('oracle')
+  await page.getByRole('button', { name: 'Validar y activar proveedor' }).click()
+  assert.equal(state.repositories.find((r) => r.id === 'oracle').enabled, true)
   await screenshot('repositories-dark')
+  await page.getByText('Añadir carpeta o catálogo personalizado', { exact: true }).click()
+  await page.getByRole('button', { name: '↗ Manifiesto HTTPS' }).click()
+  await page.getByLabel('URL del manifiesto').fill('https://example.com/catalog.json')
   await page.getByLabel('Nombre opcional').fill('Mi espejo')
   await page.getByRole('button', { name: '+ Validar y añadir' }).click()
   await page.getByRole('heading', { name: 'Mi espejo' }).waitFor()
   await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
   await page.getByRole('heading', { name: 'Apariencia' }).waitFor()
+  await page.getByRole('button', { name: '▱ Mostrar archivo de preferencias' }).click()
+  assert.equal(preferencesShown, true)
+  await page.getByRole('heading', { name: 'Archivo de preferencias' }).scrollIntoViewIfNeeded()
+  await screenshot('preferences-dark')
+  await page.getByRole('heading', { name: 'Apariencia' }).scrollIntoViewIfNeeded()
   await screenshot('settings-dark')
   await page.getByRole('button', { name: '☀ Frost' }).click()
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light')
   await screenshot('settings-light')
   await page.getByRole('button', { name: 'JDKs', exact: true }).click()
   await page.getByRole('button', { name: 'Opciones de Eclipse Temurin 17.0.17' }).click()
+  await page.getByRole('button', { name: '⌘ Variables de entorno ▸' }).click()
+  await page.getByRole('button', { name: 'JDK_HOME Sin configurar' }).waitFor()
+  assert.equal(
+    await page.getByRole('button', { name: 'GRAALVM_HOME Sin configurar' }).isDisabled(),
+    true,
+  )
   await page.getByRole('button', { name: '× Desvincular JDK…' }).click()
   await page.getByRole('button', { name: 'Confirmar', exact: true }).click()
   await page.locator('dialog').waitFor({ state: 'detached' })

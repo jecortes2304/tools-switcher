@@ -1,22 +1,31 @@
 package main
 
 import (
+	"crypto/sha256"
 	"embed"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"slices"
 
 	"github.com/jecortes2304/tools-switcher/internal/desktop"
 	"github.com/jecortes2304/tools-switcher/internal/manager"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
-	"github.com/wailsapp/wails/v3/pkg/icons"
+
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+//go:embed build/appicon.png
+var appIcon []byte
+
+//go:embed build/tray-template.png
+var trayTemplate []byte
 
 var version = "0.1.0"
 var updatePublicKeyBase64 string
@@ -46,6 +55,11 @@ func newApplication() (*application.App, *application.WebviewWindow, error) {
 	}
 	service := desktop.New(m, version, string(publicKey))
 	notifier := notifications.New()
+	instanceID := "com.cortestudios.tools-switcher"
+	if os.Getenv("TOOLS_SWITCHER_CONFIG_DIR") != "" {
+		digest := sha256.Sum256([]byte(dir))
+		instanceID += fmt.Sprintf(".%x", digest[:8])
+	}
 	var window *application.WebviewWindow
 	app := application.New(application.Options{
 		Name:        "tools-switcher",
@@ -56,7 +70,7 @@ func newApplication() (*application.App, *application.WebviewWindow, error) {
 		},
 		Assets: application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "com.cortestudios.tools-switcher",
+			UniqueID: instanceID,
 			OnSecondInstanceLaunch: func(_ application.SecondInstanceData) {
 				if window != nil {
 					window.Show()
@@ -85,8 +99,11 @@ func newApplication() (*application.App, *application.WebviewWindow, error) {
 		}
 	})
 	tray := app.SystemTray.New()
-	tray.SetIcon(icons.SystrayLight)
-	tray.SetDarkModeIcon(icons.SystrayDark)
+	tray.SetIcon(appIcon)
+	tray.SetDarkModeIcon(appIcon)
+	if runtime.GOOS == "darwin" {
+		tray.SetTemplateIcon(trayTemplate)
+	}
 	tray.SetTooltip("tools-switcher")
 	menu := app.Menu.New()
 	menu.Add("Abrir tools-switcher").OnClick(func(_ *application.Context) { window.Show(); window.Focus() })

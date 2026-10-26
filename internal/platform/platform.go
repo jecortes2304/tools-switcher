@@ -24,12 +24,24 @@ var SetAutostart = unixAutostart
 var ResolvedJava = resolvedJava
 
 func Variables() []Variable {
-	result := []Variable{}
+	names := map[string]bool{}
 	for _, entry := range os.Environ() {
-		name, value, ok := strings.Cut(entry, "=")
+		name, _, ok := strings.Cut(entry, "=")
 		if ok && ValidVariable(name) {
-			result = append(result, Variable{name, value})
+			names[name] = true
 		}
+	}
+	for _, name := range EnvironmentNames() {
+		if ValidVariable(name) {
+			names[name] = true
+		}
+	}
+	for _, name := range []string{"JAVA_HOME", "JDK_HOME", "GRAALVM_HOME", "JRE_HOME"} {
+		names[name] = true
+	}
+	result := []Variable{}
+	for name := range names {
+		result = append(result, Variable{Name: name, Value: InspectVariable(name).Value})
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 	return result
@@ -203,4 +215,43 @@ func unixAutostart(enabled bool) error {
 		return err
 	}
 	return os.WriteFile(file, []byte(content), 0600)
+}
+
+func RevealFile(file string) error {
+	if _, err := os.Stat(file); err != nil {
+		return err
+	}
+	switch runtime.GOOS {
+	case "windows":
+		command := exec.Command(filepath.Join(os.Getenv("SystemRoot"), "explorer.exe"), "/select,"+file)
+		if err := command.Start(); err != nil {
+			return err
+		}
+		go command.Wait()
+		return nil
+	case "darwin":
+		return exec.Command("open", "-R", file).Run()
+	default:
+		return OpenFolder(filepath.Dir(file))
+	}
+}
+
+func readUnixStoredVariable(name string) (string, bool, error) {
+	file, _, err := envFiles()
+	if err != nil {
+		return "", false, err
+	}
+	data, err := os.ReadFile(file)
+	if os.IsNotExist(err) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	values := map[string]string{}
+	if err = json.Unmarshal(data, &values); err != nil {
+		return "", false, err
+	}
+	value, ok := values[name]
+	return value, ok, nil
 }

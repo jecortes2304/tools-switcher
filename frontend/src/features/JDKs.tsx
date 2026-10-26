@@ -20,6 +20,7 @@ export function JDKs({ snapshot, run }: { snapshot: Snapshot; run: Run }) {
   const [variable, setVariable] = useState<Installation | null>(null)
   const [variables, setVariables] = useState<Variable[]>([])
   const [variableName, setVariableName] = useState('JAVA_HOME')
+  const [environmentMenu, setEnvironmentMenu] = useState(false)
   const [discovered, setDiscovered] = useState<Installation[] | null>(null)
   const [working, setWorking] = useState(false)
   const installations = snapshot.installations ?? []
@@ -51,9 +52,11 @@ export function JDKs({ snapshot, run }: { snapshot: Snapshot; run: Run }) {
       </div>
       <section className="panel active-panel">
         <div className="eyebrow">
-          <span className={`dot ${snapshot.activePath ? 'live' : ''}`} /> ENTORNO DEL USUARIO
+          <span className={`dot ${snapshot.activePath ? 'live' : ''}`} /> ENTORNO ·{' '}
+          {{ user: 'USUARIO', system: 'SISTEMA', session: 'SESIÓN' }[snapshot.activeSource] ??
+            'SIN CONFIGURAR'}
         </div>
-        <h2>{active?.name ?? (snapshot.activePath ? 'JDK externa' : 'Elige tu entorno Java')}</h2>
+        <h2>{active?.name ?? (snapshot.activeName || 'Elige tu entorno Java')}</h2>
         <p className="mono truncate" title={snapshot.activePath}>
           {snapshot.activePath || 'JAVA_HOME todavía no está configurado'}
         </p>
@@ -114,6 +117,7 @@ export function JDKs({ snapshot, run }: { snapshot: Snapshot; run: Run }) {
               className={`jdk-card ${isActive ? 'active' : ''}`}
               onContextMenu={(e) => {
                 e.preventDefault()
+                setEnvironmentMenu(false)
                 setContext(i)
               }}
             >
@@ -122,8 +126,9 @@ export function JDKs({ snapshot, run }: { snapshot: Snapshot; run: Run }) {
                 <div className="grow">
                   <h3>{i.name}</h3>
                   <small>
-                    {repository?.name ?? 'Instalación local'} ·{' '}
-                    <span className="mono">{i.version}</span>
+                    {repository?.name ??
+                      (i.repositoryId ? 'Repositorio eliminado' : 'Instalación local')}{' '}
+                    · <span className="mono">{i.version}</span>
                   </small>
                 </div>
                 {isActive ? (
@@ -144,7 +149,10 @@ export function JDKs({ snapshot, run }: { snapshot: Snapshot; run: Run }) {
                 <button
                   className="icon-button"
                   aria-label={`Opciones de ${i.name}`}
-                  onClick={() => setContext(i)}
+                  onClick={() => {
+                    setEnvironmentMenu(false)
+                    setContext(i)
+                  }}
                 >
                   ⋮
                 </button>
@@ -215,32 +223,52 @@ export function JDKs({ snapshot, run }: { snapshot: Snapshot; run: Run }) {
               ◉ Activar JDK (JAVA_HOME y PATH)
             </button>
             <button
-              onClick={async () => {
-                await assign(context, 'JAVA_HOME')
-                setContext(null)
-              }}
+              onClick={() => setEnvironmentMenu((open) => !open)}
+              aria-expanded={environmentMenu}
             >
-              ◉ Establecer JAVA_HOME
+              ⌘ Variables de entorno {environmentMenu ? '▾' : '▸'}
             </button>
+            {environmentMenu && (
+              <div className="environment-menu">
+                {['JAVA_HOME', 'JDK_HOME', 'GRAALVM_HOME', 'JRE_HOME'].map((name) => {
+                  const assigned = snapshot.environment?.find((v) => v.name === name)?.value ?? ''
+                  const isAssigned =
+                    !!assigned && equalPath(assigned, context.path, snapshot.platform)
+                  return (
+                    <button
+                      key={name}
+                      disabled={name === 'GRAALVM_HOME' && !/graal/i.test(context.name)}
+                      onClick={async () => {
+                        if (await assign(context, name)) setContext(null)
+                      }}
+                    >
+                      <span>{name}</span>
+                      <small>
+                        {isAssigned ? '✓ Asignada a esta JDK' : assigned || 'Sin configurar'}
+                      </small>
+                    </button>
+                  )
+                })}
+                <button
+                  onClick={async () => {
+                    const i = context
+                    if (await run(async () => setVariables((await api.Variables()) ?? []))) {
+                      setContext(null)
+                      setVariableName('')
+                      setVariable(i)
+                    }
+                  }}
+                >
+                  Otra variable…
+                </button>
+              </div>
+            )}
             <button
               onClick={async () => {
-                await assign(context, 'PATH')
-                setContext(null)
+                if (await assign(context, 'PATH')) setContext(null)
               }}
             >
               ↗ Añadir a PATH
-            </button>
-            <button
-              onClick={async () => {
-                const i = context
-                if (await run(async () => setVariables((await api.Variables()) ?? []))) {
-                  setContext(null)
-                  setVariableName('JAVA_HOME')
-                  setVariable(i)
-                }
-              }}
-            >
-              ⌘ Asignar variable de entorno…
             </button>
             <button onClick={() => run(() => api.OpenInstallation(context.id))}>
               ▱ Abrir ubicación

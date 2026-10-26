@@ -72,6 +72,10 @@ export function RemoveRepository(repositoryID: string): $CancellablePromise<void
     return $Call.ByID(1658777760, repositoryID);
 }
 
+export function RepositoryVersions(id: string): $CancellablePromise<number[] | null> {
+    return $Call.ByID(2276829565, id);
+}
+
 export function Restart(): $CancellablePromise<void> {
     return $Call.ByID(265828119);
 }
@@ -84,8 +88,16 @@ export function SaveSettings(settings: manager$0.Settings): $CancellablePromise<
     return $Call.ByID(1689033556, settings);
 }
 
+export function ShowPreferencesFile(): $CancellablePromise<void> {
+    return $Call.ByID(4109743067);
+}
+
 export function Snapshot(): $CancellablePromise<manager$0.Snapshot> {
     return $Call.ByID(2543328488);
+}
+
+export function SyncRepository(id: string): $CancellablePromise<void> {
+    return $Call.ByID(962439507, id);
 }
 
 export function ToggleRepository(repositoryID: string, enabled: boolean): $CancellablePromise<void> {

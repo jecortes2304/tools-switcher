@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -124,6 +125,13 @@ func (m *Manager) runInstall(ctx context.Context, p Package, vault string) {
 }
 
 func (m *Manager) install(ctx context.Context, p Package, vault string) error {
+	if p.DiscoveryID != "" {
+		resolved, err := m.resolvePackage(ctx, p)
+		if err != nil {
+			return err
+		}
+		p = resolved
+	}
 	if p.LocalPath != "" {
 		if info, err := os.Stat(p.LocalPath); err == nil && info.IsDir() {
 			return m.Import(p.LocalPath, p.RepositoryID)
@@ -184,6 +192,11 @@ func (m *Manager) install(ctx context.Context, p Package, vault string) error {
 			return err
 		}
 		hash := sha256.New()
+		expectedHash := p.SHA256
+		if expectedHash == "" && p.SHA512 != "" {
+			hash = sha512.New()
+			expectedHash = p.SHA512
+		}
 		progress := &progressWriter{m: m, id: p.ID}
 		written, err := io.Copy(io.MultiWriter(f, hash, progress), io.LimitReader(res.Body, maxArchiveBytes+1))
 		closeErr := f.Close()
@@ -199,8 +212,8 @@ func (m *Manager) install(ctx context.Context, p Package, vault string) error {
 		if p.Size > 0 && written != p.Size {
 			return errors.New("tamaño de descarga incorrecto")
 		}
-		if !strings.EqualFold(hex.EncodeToString(hash.Sum(nil)), p.SHA256) {
-			return errors.New("el checksum SHA-256 no coincide; se ha descartado el paquete")
+		if !strings.EqualFold(hex.EncodeToString(hash.Sum(nil)), expectedHash) {
+			return errors.New("el checksum no coincide; se ha descartado el paquete")
 		}
 	}
 	m.jobStatus(p.ID, "extracting", nil)

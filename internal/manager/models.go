@@ -1,6 +1,9 @@
 package manager
 
-import "time"
+import (
+	"github.com/jecortes2304/tools-switcher/internal/platform"
+	"time"
+)
 
 type Settings struct {
 	Theme            string `json:"theme"`
@@ -11,18 +14,20 @@ type Settings struct {
 }
 
 type Repository struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Kind     string `json:"kind"`
-	Source   string `json:"source"`
-	Tool     string `json:"tool"`
-	Enabled  bool   `json:"enabled"`
-	Count    int    `json:"count"`
-	LastSync string `json:"lastSync"`
-	Error    string `json:"error"`
+	ProviderID string `json:"providerId"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Kind       string `json:"kind"`
+	Source     string `json:"source"`
+	Tool       string `json:"tool"`
+	Enabled    bool   `json:"enabled"`
+	Count      int    `json:"count"`
+	LastSync   string `json:"lastSync"`
+	Error      string `json:"error"`
 }
 
 type Package struct {
+	DiscoveryID  string `json:"discoveryId"`
 	ID           string `json:"id"`
 	RepositoryID string `json:"repositoryId"`
 	Name         string `json:"name"`
@@ -32,6 +37,7 @@ type Package struct {
 	Arch         string `json:"arch"`
 	URL          string `json:"url"`
 	SHA256       string `json:"sha256"`
+	SHA512       string `json:"sha512"`
 	Filename     string `json:"filename"`
 	Size         int64  `json:"size"`
 	LocalPath    string `json:"localPath"`
@@ -75,14 +81,18 @@ type State struct {
 }
 
 type Snapshot struct {
-	Settings      Settings       `json:"settings"`
-	Repositories  []Repository   `json:"repositories"`
-	Installations []Installation `json:"installations"`
-	Downloads     []Download     `json:"downloads"`
-	ActivePath    string         `json:"activePath"`
-	ResolvedJava  string         `json:"resolvedJava"`
-	Platform      string         `json:"platform"`
-	Architecture  string         `json:"architecture"`
+	ActiveSource    string                         `json:"activeSource"`
+	ActiveName      string                         `json:"activeName"`
+	PreferencesFile string                         `json:"preferencesFile"`
+	Environment     []platform.EnvironmentVariable `json:"environment"`
+	Settings        Settings                       `json:"settings"`
+	Repositories    []Repository                   `json:"repositories"`
+	Installations   []Installation                 `json:"installations"`
+	Downloads       []Download                     `json:"downloads"`
+	ActivePath      string                         `json:"activePath"`
+	ResolvedJava    string                         `json:"resolvedJava"`
+	Platform        string                         `json:"platform"`
+	Architecture    string                         `json:"architecture"`
 }
 
 var now = func() string { return time.Now().UTC().Format(time.RFC3339) }

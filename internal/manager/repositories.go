@@ -36,6 +36,9 @@ func (m *Manager) getJSON(ctx context.Context, address string, dst any) error {
 	if res.StatusCode != 200 {
 		return fmt.Errorf("catálogo no accesible: HTTP %d", res.StatusCode)
 	}
+	if strings.Contains(res.Header.Get("Content-Type"), "text/html") {
+		return errors.New("el origen es una página web, no un catálogo compatible; selecciona un proveedor predefinido o un manifiesto JSON")
+	}
 	data, err := io.ReadAll(io.LimitReader(res.Body, 8*1024*1024+1))
 	if err != nil {
 		return err
@@ -221,6 +224,15 @@ func (m *Manager) Catalog(repoID string, major int) ([]Package, error) {
 }
 
 func (m *Manager) ToggleRepository(repoID string, enabled bool) error {
+	r, err := m.repository(repoID)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		if err = m.checkRepository(r); err != nil {
+			return err
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	previous := m.cloneState()
@@ -233,6 +245,9 @@ func (m *Manager) ToggleRepository(repoID string, enabled bool) error {
 	return errors.New("repositorio no encontrado")
 }
 func (m *Manager) RemoveRepository(repoID string) error {
+	if r, err := m.repository(repoID); err == nil && r.ProviderID != "" {
+		return m.ToggleRepository(repoID, false)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	previous := m.cloneState()
@@ -287,6 +302,10 @@ func (m *Manager) loadCatalog(r Repository, major int) ([]Package, error) {
 			result = append(result, p)
 		}
 		return result, nil
+	case "corretto":
+		return m.loadCorrettoCatalog(ctx, r, major)
+	case "foojay":
+		return m.loadDiscoCatalog(ctx, r, major)
 	case "manifest":
 		var manifest struct {
 			SchemaVersion int       `json:"schemaVersion"`
@@ -321,9 +340,15 @@ func validatePackage(p Package) error {
 	if err := httpsURL(p.URL); err != nil {
 		return err
 	}
-	hash, err := hex.DecodeString(p.SHA256)
-	if err != nil || len(hash) != 32 {
-		return errors.New("cada paquete necesita un checksum SHA-256 válido")
+	digest := p.SHA256
+	expectedLength := 32
+	if digest == "" && p.SHA512 != "" {
+		digest = p.SHA512
+		expectedLength = 64
+	}
+	hash, err := hex.DecodeString(digest)
+	if err != nil || len(hash) != expectedLength {
+		return errors.New("cada paquete necesita un checksum SHA-256 o SHA-512 válido")
 	}
 	if p.Name == "" || p.Version == "" || p.OS == "" || p.Arch == "" {
 		return errors.New("faltan metadatos de la JDK")
