@@ -52,7 +52,7 @@ Codifica el PFX:
 [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path ./certificado.pfx))) | Set-Clipboard
 ```
 
-La contraseña va en su secret separado. El ejecutable y el instalador se firman con timestamp. La firma no garantiza que SmartScreen haya adquirido reputación para una aplicación nueva.
+La contraseña va en su secret separado. El ejecutable y el instalador se firman directamente con `signtool.exe` de Windows SDK, usando SHA-256 y timestamp RFC 3161. El empaquetador busca la herramienta en PATH y después en Windows Kits; no utiliza la firma incorporada de Wails beta.16, que todavía no está implementada en Windows. Un certificado autofirmado permite probar esta pipeline, pero no acredita un editor de confianza en otros equipos. La firma no garantiza que SmartScreen haya adquirido reputación para una aplicación nueva.
 
 No hace falta ningún PAT: la release usa el `GITHUB_TOKEN` automático con `contents: write` únicamente en el trabajo de publicación. GitHub Actions debe estar habilitado en el repositorio.
 
