@@ -1,10 +1,10 @@
 module github.com/jecortes2304/tools-switcher
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/wailsapp/wails/v3 v3.0.0-beta.16
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.49.0
 )
 
 require (
