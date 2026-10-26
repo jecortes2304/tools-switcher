@@ -88,7 +88,13 @@ func (s *Service) ServiceShutdown() error {
 }
 func (s *Service) Snapshot() manager.Snapshot {
 	v := s.manager.Snapshot()
-	v.ActivePath, _, _ = platform.ReadVariable("JAVA_HOME")
+	v.Environment = platform.JavaEnvironment()
+	if len(v.Environment) > 0 {
+		v.ActivePath = v.Environment[0].Value
+		v.ActiveSource = v.Environment[0].Source
+	}
+	v.ActiveName = s.manager.DescribeHome(v.ActivePath)
+	v.PreferencesFile = s.manager.PreferencesFile()
 	v.ResolvedJava = platform.ResolvedJava()
 	return v
 }
@@ -250,3 +256,15 @@ func (p signedProvider) Download(ctx context.Context, release *updater.Release, 
 }
 
 func (s *Service) Activate(id string) error { return s.manager.Activate(id) }
+
+func (s *Service) ShowPreferencesFile() error {
+	if err := s.manager.EnsurePreferencesFile(); err != nil {
+		return err
+	}
+	return platform.RevealFile(s.manager.PreferencesFile())
+}
+
+func (s *Service) RepositoryVersions(id string) ([]int, error) {
+	return s.manager.RepositoryVersions(id)
+}
+func (s *Service) SyncRepository(id string) error { return s.manager.SyncRepository(id) }

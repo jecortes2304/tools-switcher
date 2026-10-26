@@ -743,3 +743,33 @@ dialog p {
     scroll-behavior: auto !important;
   }
 }
+
+.brand-icon {
+  border: 0;
+  background: transparent;
+}
+.advanced-sources summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 11px;
+}
+.environment-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-left: 2px solid var(--cyan);
+  padding-left: 8px;
+}
+.environment-menu button small {
+  overflow-wrap: anywhere;
+  font-size: 9px;
+  margin-top: 4px;
+}
+.environment-detail {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+}
+.environment-detail p {
+  color: var(--cyan);
+  margin: 6px 0;
+}

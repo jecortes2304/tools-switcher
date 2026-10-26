@@ -13,8 +13,15 @@ export function Catalog({
 }) {
   const enabled = repositories.filter((r) => r.enabled)
   const [repository, setRepository] = useState(enabled[0]?.id ?? '')
-  const [major, setMajor] = useState(21)
-  const [versions, setVersions] = useState([25, 21, 17, 11, 8])
+  const [selection, setSelection] = useState<{
+    repository: string
+    versions: number[]
+    major: number
+  }>({ repository: '', versions: [], major: 0 })
+  const [versionError, setVersionError] = useState('')
+  const source = enabled.find((r) => r.id === repository)
+  const major = selection.repository === repository ? selection.major : 0
+  const versions = selection.versions
   const [packages, setPackages] = useState<Package[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -22,21 +29,35 @@ export function Catalog({
   const [error, setError] = useState('')
   useEffect(() => {
     let active = true
+    setVersionError('')
+    setSelection({ repository, versions: [], major: 0 })
+    if (!repository) return
+    if (!['adoptium', 'foojay', 'corretto'].includes(source?.kind ?? '')) {
+      setSelection({ repository, versions: [], major: 21 })
+      return
+    }
     api
-      .Versions()
-      .then((v) => {
-        if (active && v?.length) setVersions(v)
+      .RepositoryVersions(repository)
+      .then((values) => {
+        if (!active) return
+        const list = values ?? []
+        setSelection({ repository, versions: list, major: list.includes(21) ? 21 : (list[0] ?? 0) })
+        if (!list.length)
+          setVersionError('Este proveedor no anuncia versiones estables disponibles.')
       })
-      .catch(() => {})
+      .catch((error) => {
+        if (active) setVersionError(errorMessage(error))
+      })
     return () => {
       active = false
     }
-  }, [])
+  }, [repository, source?.kind])
   useEffect(() => {
     let active = true
     setPackages([])
     setError('')
-    if (!repository) return
+    setLoading(false)
+    if (!repository || !major) return
     setLoading(true)
     api
       .Catalog(repository, major)
@@ -56,12 +77,11 @@ export function Catalog({
   useEffect(() => {
     setSelected([])
   }, [repository])
-  const source = enabled.find((r) => r.id === repository)
   return (
     <Modal title="Instalar JDKs" onClose={onClose}>
       {!enabled.length ? (
         <Empty title="Añade un repositorio">
-          Conecta Temurin o una carpeta offline desde Repositorios.
+          Activa un proveedor o añade una carpeta offline desde Repositorios.
         </Empty>
       ) : (
         <>
@@ -75,10 +95,15 @@ export function Catalog({
               ))}
             </select>
           </label>
-          {source?.kind === 'adoptium' && (
+          {['adoptium', 'foojay', 'corretto'].includes(source?.kind ?? '') && (
             <label className="field">
               Versión de Java
-              <select value={major} onChange={(e) => setMajor(Number(e.target.value))}>
+              <select
+                value={major}
+                onChange={(e) =>
+                  setSelection((current) => ({ ...current, major: Number(e.target.value) }))
+                }
+              >
                 {versions.map((v) => (
                   <option key={v} value={v}>
                     Java {v}
@@ -91,6 +116,11 @@ export function Catalog({
             Paquetes compatibles con este equipo. La selección se conserva al cambiar de versión de
             Java.
           </p>
+          {versionError && (
+            <p className="error-message" role="alert">
+              {versionError}
+            </p>
+          )}
           <div className="catalog-list" aria-busy={loading}>
             {loading && <p className="hint">Consultando catálogo…</p>}
             {error && (
@@ -98,7 +128,7 @@ export function Catalog({
                 {error}
               </p>
             )}
-            {!loading && !error && !packages.length && (
+            {!!major && !loading && !error && !packages.length && (
               <Empty title="Sin paquetes">Prueba otra versión o sincroniza el repositorio.</Empty>
             )}
             {packages.map((p) => (
@@ -114,6 +144,7 @@ export function Catalog({
                 />
                 <span>
                   <strong>{p.name}</strong>
+                  <small className="mono wrap">{p.filename}</small>
                   <small>
                     {p.os} · {p.arch} · {bytes(p.size)}
                   </small>
@@ -123,7 +154,7 @@ export function Catalog({
           </div>
           <button
             className="primary full"
-            disabled={!selected.length || working || loading}
+            disabled={!selected.length || working || loading || !major}
             onClick={async () => {
               setWorking(true)
               if (await run(() => api.Queue(selected), 'Instalaciones añadidas a la cola'))

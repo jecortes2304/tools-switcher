@@ -81,7 +81,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <span className="brand-icon">⌘</span>
+        <img className="brand-icon" src="/appicon.png" alt="" />
         <div>
           <strong>
             tools<span className="brand-accent">-switcher</span>

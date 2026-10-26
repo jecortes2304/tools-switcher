@@ -9,11 +9,11 @@ Construida con Go, Wails 3 y React con TypeScript. El identificador de aplicaci�
 - Inventario de JDKs con búsqueda, proveedor, repositorio y ubicación.
 - Activación de una JDK mediante `JAVA_HOME` y `PATH`.
 - Asignación de una JDK a variables existentes o nuevas y restauración de los valores anteriores.
-- Catálogo de Eclipse Temurin mediante la API oficial de Adoptium.
+- Diez proveedores incluidos: Temurin, Corretto, Oracle JDK, Oracle OpenJDK, GraalVM Community, Oracle GraalVM, Zulu, Liberica, Microsoft y JetBrains Runtime.
 - Repositorios propios con manifiesto JSON sobre HTTPS.
 - Carpetas offline con JDKs descomprimidas y archivos ZIP o TAR.GZ compatibles.
 - Selección de varias versiones, tres instalaciones concurrentes, progreso y cancelación.
-- Validación SHA-256 de descargas remotas y extracción limitada al destino.
+- Validación SHA-256 o SHA-512 de descargas remotas y extracción limitada al destino.
 - Importación manual y detección en ubicaciones habituales.
 - Temas oscuro, claro y del sistema.
 - Carpeta vault configurable, inicio con la sesión y cierre a la bandeja.
@@ -60,19 +60,21 @@ En local produce el binario de Windows, el bundle comprimido de macOS o el binar
 
 ### 1. Añadir un repositorio
 
-En **Repositorios**, selecciona URL remota y añade `https://api.adoptium.net/v3`. Puedes ponerle un alias. tools-switcher consulta el catálogo y comprueba un enlace de muestra antes de guardarlo.
+En **Repositorios**, busca y selecciona un proveedor incluido y pulsa **Activar**. Temurin viene activado al crear la configuración. La activación consulta versiones, comprueba un paquete compatible y valida el acceso a una descarga con checksum. Puedes sincronizar cada fuente o desactivarla conservando las JDKs instaladas.
 
-Una página web genérica no es un catálogo. Las fuentes remotas admitidas son la API de Adoptium y el [manifiesto propio](docs/repositories.md). La validación previa no sustituye la comprobación de integridad al descargar.
+Para probar Oracle, selecciona **Oracle JDK**, actívalo y abre **JDKs → Instalar → Oracle JDK**. Elige una versión disponible y marca el paquete. Oracle OpenJDK y las dos distribuciones de GraalVM aparecen como proveedores separados. HotSpot es una máquina virtual usada por varias distribuciones; la distribución de Amazon se llama Corretto.
+
+**Añadir carpeta o catálogo personalizado** permite registrar una carpeta offline, la API `https://api.adoptium.net/v3` o un [manifiesto propio](docs/repositories.md). Una página web de descargas o un enlace ZIP aislado no constituyen un catálogo compatible.
 
 Para trabajar offline, selecciona una carpeta con JDKs o paquetes `.zip` / `.tar.gz` en su primer nivel. Las carpetas de JDK se buscan hasta seis niveles. Se filtran los archivos comprimidos según sistema y arquitectura declarados en `release`.
 
-Desactivar un repositorio impide nuevas instalaciones desde ese origen. Eliminarlo conserva las JDKs ya instaladas.
+Los proveedores incluidos se desactivan; los catálogos personalizados también pueden eliminarse. Ambas operaciones conservan las instalaciones existentes. Consulta [cómo se obtienen y validan los paquetes](docs/repositories.md).
 
 ### 2. Instalar o importar una JDK
 
 En **JDKs → Instalar**, elige repositorio y versión. Marca paquetes y cambia de versión para añadir más a la selección. **Instalar selección** los añade a la cola, con un máximo de tres operaciones simultáneas.
 
-Las descargas remotas deben incluir un SHA-256 válido. El paquete se descarga a una carpeta temporal dentro del vault, se verifica y se extrae. Solo se registra cuando contiene exactamente una JDK con `release`, `bin/java` y `bin/javac`. La cancelación o un error limpia el directorio temporal.
+Las descargas remotas deben incluir un SHA-256 o SHA-512 válido. El paquete se descarga a una carpeta temporal dentro del vault, se verifica y se extrae. Solo se registra cuando contiene exactamente una JDK con `release`, `bin/java` y `bin/javac`. La cancelación o un error limpia el directorio temporal.
 
 **Importar** registra la carpeta raíz de una JDK existente. **Detectar** consulta `JAVA_HOME`, el vault y ubicaciones habituales de Java de cada plataforma; no recorre todos los discos. Las carpetas offline descomprimidas también se registran como instalaciones externas.
 
@@ -80,7 +82,9 @@ Las descargas remotas deben incluir un SHA-256 válido. El paquete se descarga a
 
 **Activar** configura `JAVA_HOME` y añade el directorio `bin` a `PATH`. Los cambios del par se revierten si una operación falla.
 
-El menú `⋮` y el clic derecho permiten establecer solo `JAVA_HOME`, gestionar PATH, asignar otra variable, abrir la ubicación, restaurar valores anteriores y retirar la JDK.
+El menú `⋮` y el clic derecho permiten gestionar PATH y abrir **Variables de entorno**: incluye accesos a `JAVA_HOME`, `JDK_HOME`, `GRAALVM_HOME` y `JRE_HOME`, además de una variable personalizada. `GRAALVM_HOME` se habilita para instalaciones GraalVM. Son convenciones utilizadas por herramientas distintas, no una lista exhaustiva ni variables obligatorias. El menú también permite abrir la ubicación, restaurar valores anteriores y retirar la JDK.
+
+Al arrancar se consulta `JAVA_HOME` aunque todavía no haya instalaciones registradas. En Windows se leen los ámbitos de usuario y sistema; en su ausencia se usa el valor heredado de la sesión. La cabecera muestra su origen y **Ajustes** permite comparar los valores. **Detectar** incorpora la instalación al inventario si su carpeta contiene una JDK válida.
 
 En Windows se modifica el entorno del usuario en `HKCU\Environment` y se anuncia el cambio al sistema. El PATH del sistema puede resolver otro Java antes que el PATH del usuario; **Ajustes → Diagnóstico** muestra la resolución prevista. Los procesos ya abiertos mantienen su entorno: abre una terminal nueva.
 
@@ -96,7 +100,7 @@ Las instalaciones externas se **desvinculan** y conservan sus archivos.
 
 ### 5. Preferencias y bandeja
 
-En **Ajustes** puedes elegir tema y vault, iniciar con la sesión, mantener la aplicación en la bandeja al cerrar y habilitar comprobaciones de actualización.
+En **Ajustes** puedes elegir tema y vault, iniciar con la sesión, mantener la aplicación en la bandeja al cerrar y habilitar comprobaciones de actualización. **Archivo de preferencias** muestra la ruta de `state.json`, permite copiarla y ofrece **Mostrar archivo de preferencias** para localizarlo en el explorador.
 
 Cambiar de vault afecta a instalaciones nuevas. Para salir completamente usa **Salir** en el menú de la bandeja. La integración de bandeja en Linux depende del escritorio y sus extensiones.
 
@@ -105,6 +109,8 @@ Cambiar de vault afecta a instalaciones nuevas. Para salir completamente usa **S
 Se usa `os.UserConfigDir()/tools-switcher/state.json`: `%APPDATA%\tools-switcher` en Windows, `~/Library/Application Support/tools-switcher` en macOS y `$XDG_CONFIG_HOME/tools-switcher` o `~/.config/tools-switcher` en Linux.
 
 El vault predeterminado es `~/.tools-switcher/vault`. La configuración incluye esquema versionado, preferencias, repositorios, instalaciones y copias de los valores de entorno modificados. Un archivo corrupto produce un error y se conserva para poder recuperarlo.
+
+Para guardar una copia o recuperar otra configuración, localiza el archivo desde Ajustes, sal completamente mediante **Salir** en la bandeja y copia o reemplaza `state.json`. Conserva una copia antes de reemplazarlo. Al borrarlo se recrean las preferencias y los proveedores iniciales; esto no borra las JDKs del disco ni restablece las variables del sistema. También se pierden los valores originales guardados para restaurar variables. Usa **Detectar** para registrar de nuevo las instalaciones existentes.
 
 Las colas viven en memoria; las descargas se cancelan al salir. No se reanudan tras reiniciar. Se admiten hasta 50 paquetes por lote, 8 GiB por paquete/extracción y 30 minutos por instalación.
 

@@ -62,7 +62,26 @@ func inspectHome(home string) (Installation, error) {
 	if vendor == "" {
 		vendor = "OpenJDK"
 	}
-	return Installation{Tool: "jdk", Name: vendor + " " + v["JAVA_VERSION"], Version: v["JAVA_VERSION"], Vendor: vendor, Path: home}, nil
+	name := vendor
+	details := strings.ToLower(strings.Join([]string{v["IMPLEMENTOR_VERSION"], v["JAVA_RUNTIME_NAME"], v["GRAALVM_VERSION"], v["GRAALVM_VENDOR"], filepath.Base(home)}, " "))
+	switch {
+	case v["GRAALVM_VERSION"] != "" || strings.Contains(details, "graalvm") || strings.Contains(details, "graal"):
+		name = "GraalVM"
+		if strings.Contains(details, "community") {
+			name = "GraalVM Community"
+		}
+	case strings.Contains(details, "jbr") || strings.Contains(vendor, "JetBrains"):
+		name = "JetBrains Runtime"
+	case strings.Contains(details, "temurin") || strings.Contains(vendor, "Adoptium"):
+		name = "Eclipse Temurin"
+	case strings.Contains(details, "corretto"):
+		name = "Amazon Corretto"
+	case strings.Contains(details, "zulu"):
+		name = "Azul Zulu"
+	case strings.Contains(vendor, "Microsoft"):
+		name = "Microsoft OpenJDK"
+	}
+	return Installation{Tool: "jdk", Name: name + " " + v["JAVA_VERSION"], Version: v["JAVA_VERSION"], Vendor: vendor, Path: home}, nil
 }
 
 func findHomes(root string) ([]Installation, error) {

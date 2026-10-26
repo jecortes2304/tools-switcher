@@ -60,8 +60,8 @@ func TestNativeSmoke(t *testing.T) {
   const click=text=>{const button=[...document.querySelectorAll('button')].find(b=>b.textContent.trim().endsWith(text));if(!button)throw new Error('Missing button '+text);button.click()};
   try{
    await wait(()=>document.body.innerText.includes('Java Development Kits'));
-   click('Repositorios');await wait(()=>document.body.innerText.includes('Validar y añadir'));
-   click('+ Validar y añadir');await wait(()=>[...document.querySelectorAll('h3')].some(h=>h.textContent==='Eclipse Temurin'));
+   click('Repositorios');await wait(()=>document.body.innerText.includes('Proveedores incluidos'));
+   await wait(()=>[...document.querySelectorAll('h3')].some(h=>h.textContent==='Eclipse Temurin'));
    click('JDKs');await wait(()=>document.body.innerText.includes('Java Development Kits'));click('+ Instalar');
    await wait(()=>[...document.querySelectorAll('.package-row')].some(row=>/Eclipse Temurin 21\./.test(row.textContent)));
    await report('ok');
