@@ -40,6 +40,10 @@ jobs:
         run: npm --prefix frontend exec playwright install chromium
       - if: runner.os == 'Windows'
         run: npm --prefix frontend run test:ui
+      - if: runner.os == 'Windows'
+        run: go test ./cmd/ci -run TestWindowsSigningWithSelfSignedCertificate -count=1 -timeout 90s
+        env:
+          TOOLS_SWITCHER_SIGNING_TEST: '1'
       - run: go test ./...
       - run: go test -race ./internal/...
         env:

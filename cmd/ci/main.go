@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -179,8 +180,32 @@ func signWindows(file string) {
 	_, err = temp.Write(data)
 	must(err)
 	must(temp.Close())
-	must(os.Setenv("WAILS_WINDOWS_CERT_PASSWORD", os.Getenv("WINDOWS_CERTIFICATE_PASSWORD")))
-	run("wails3", "tool", "sign", "--input", file, "--certificate", name, "--timestamp", "http://timestamp.digicert.com")
+	tool, err := windowsSignTool()
+	must(err)
+	run(tool, "sign", "/f", name, "/p", os.Getenv("WINDOWS_CERTIFICATE_PASSWORD"), "/fd", "SHA256", "/tr", "http://timestamp.digicert.com", "/td", "SHA256", file)
+}
+func windowsSignTool() (string, error) {
+	if tool, err := exec.LookPath("signtool.exe"); err == nil {
+		return tool, nil
+	}
+	arch := "x64"
+	if runtime.GOARCH == "arm64" {
+		arch = "arm64"
+	} else if runtime.GOARCH == "386" {
+		arch = "x86"
+	}
+	pattern := filepath.Join(os.Getenv("ProgramFiles(x86)"), "Windows Kits", "10", "bin", "*", arch, "signtool.exe")
+	tools, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", err
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(tools)))
+	for _, tool := range tools {
+		if info, err := os.Stat(tool); err == nil && info.Mode().IsRegular() {
+			return tool, nil
+		}
+	}
+	return "", errors.New("signtool.exe no encontrado; instala Windows SDK o añade su carpeta al PATH")
 }
 func release() {
 	key, err := base64.StdEncoding.DecodeString(os.Getenv("UPDATER_PRIVATE_KEY_BASE64"))
