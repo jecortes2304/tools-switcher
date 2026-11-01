@@ -4,6 +4,10 @@
 
 `features.yml` valida ramas y pull requests y conserva un ZIP del código exacto durante 15 días. `desktop.yml` construye en runners nativos de Windows, macOS y Linux al recibir cambios en `develop` o `main`.
 
+Cada job usa un runner independiente. El job `release` también debe instalar GTK4 y WebKitGTK 6.0: aunque no compile la interfaz, instalar la CLI de Wails en Linux compila dependencias nativas. `.github/actions/setup-release-tools` prepara ese entorno tanto para publicación como para `Validate release tooling`, que genera y verifica un manifiesto firmado con claves y archivos temporales sin publicar ni utilizar secretos reales.
+
+Si `release` falla después de completar la matriz, los binarios e instaladores quedan disponibles en **Actions → ejecución → Artifacts** durante 15 días, aunque todavía no exista una GitHub Release. Una corrección del workflow debe llegar a `main` mediante un nuevo commit; reejecutar la ejecución anterior conserva su definición original.
+
 La matriz inicial es Windows amd64, macOS arm64 y Linux amd64. El núcleo admite metadatos de ambas arquitecturas, pero no se publican otras combinaciones sin añadir su runner y validarlas.
 
 `develop` produce artefactos sin certificados. `main` exige claves de actualizaciones y certificado Windows, construye instaladores y publica la release solo después de verificar los artefactos de todas las plataformas.
