@@ -250,6 +250,8 @@ La búsqueda automática ocurre ocho segundos después del arranque y cada seis 
 
 El reinicio y la preparación se bloquean mientras haya instalaciones JDK activas. El actualizador conserva preferencias e inventario. Una firma inválida impide aplicar la descarga.
 
+Para la primera integración de esta automatización, usa **Create a merge commit** en el PR de la feature: también incorpora al historial de develop el commit publicado de main. Después, las features normales pueden usar squash.
+
 Para probar este cambio desde **0.1.0**, integra primero la feature en develop, espera el PR automático de **0.2.0**, fusiónalo y promueve develop a main. La 0.1.0 descargará esa primera actualización con sus controles antiguos de Ajustes; después de reiniciar ya tendrá el asistente nuevo. Para ver una notificación inmediata puedes salir completamente desde la bandeja y abrir de nuevo tras publicar la release.
 
 ### Recuperación de una pipeline fallida
