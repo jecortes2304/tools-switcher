@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/jecortes2304/tools-switcher/internal/desktop"
 	"github.com/jecortes2304/tools-switcher/internal/manager"
@@ -27,7 +28,10 @@ var appIcon []byte
 //go:embed build/tray-template.png
 var trayTemplate []byte
 
-var version = "0.1.0"
+//go:embed VERSION
+var sourceVersion string
+
+var version string
 var updatePublicKeyBase64 string
 
 func main() {
@@ -53,7 +57,7 @@ func newApplication() (*application.App, *application.WebviewWindow, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	service := desktop.New(m, version, string(publicKey))
+	service := desktop.New(m, buildVersion(), string(publicKey))
 	notifier := notifications.New()
 	instanceID := "com.cortestudios.tools-switcher"
 	if os.Getenv("TOOLS_SWITCHER_CONFIG_DIR") != "" {
@@ -111,4 +115,11 @@ func newApplication() (*application.App, *application.WebviewWindow, error) {
 	tray.SetMenu(menu)
 	tray.OnClick(func() { window.Show(); window.Focus() })
 	return app, window, nil
+}
+
+func buildVersion() string {
+	if version != "" {
+		return version
+	}
+	return strings.TrimSpace(sourceVersion)
 }
