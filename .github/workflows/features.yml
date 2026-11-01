@@ -59,4 +59,17 @@ jobs:
           path: source.zip
           retention-days: 15
           if-no-files-found: error
-
+  validate-release:
+    name: Validate release tooling
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: go.mod
+      - uses: ./.github/actions/setup-release-tools
+      - name: Generate and verify a signed release manifest
+        run: go test ./cmd/ci -run '^TestReleaseManifestAndChecksums$' -count=1 -v
