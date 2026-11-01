@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: feature-${{ github.head_ref || github.ref_name }}${{ github.event.action == 'edited' && '-title' || '' }}
+  group: feature-${{ github.event_name == 'push' && 'source' || 'validation' }}-${{ github.head_ref || github.ref_name }}${{ github.event.action == 'edited' && '-title' || '' }}
   cancel-in-progress: true
 jobs:
   validate-title:
@@ -21,7 +21,7 @@ jobs:
           persist-credentials: false
       - run: node scripts/release.mjs title
   validate:
-    if: github.event_name != 'pull_request' || github.event.action != 'edited'
+    if: github.event_name != 'push' && (github.event_name != 'pull_request' || github.event.action != 'edited')
     strategy:
       fail-fast: false
       matrix:
@@ -63,17 +63,8 @@ jobs:
           CGO_ENABLED: '1'
       - run: go vet ./...
       - run: go build -o bin/tools-switcher.exe .
-      - if: runner.os == 'Windows'
-        run: git archive --format=zip --output=source.zip HEAD
-      - if: runner.os == 'Windows'
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
-        with:
-          name: source-${{ github.sha }}
-          path: source.zip
-          retention-days: 15
-          if-no-files-found: error
   validate-release:
-    if: github.event_name != 'pull_request' || github.event.action != 'edited'
+    if: github.event_name != 'push' && (github.event_name != 'pull_request' || github.event.action != 'edited')
     name: Validate release tooling
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -87,3 +78,18 @@ jobs:
       - uses: ./.github/actions/setup-release-tools
       - name: Generate and verify a signed release manifest
         run: go test ./cmd/ci -run '^TestReleaseManifestAndChecksums$' -count=1 -v
+
+  archive-source:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: git archive --format=zip --output=source.zip HEAD
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: source-${{ github.sha }}
+          path: source.zip
+          retention-days: 15
+          if-no-files-found: error

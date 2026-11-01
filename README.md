@@ -200,7 +200,7 @@ La versión refleja el conjunto de cambios desde la última publicación: varios
 
 ### 2. Validar e integrar en develop
 
-`Feature validation` comprueba el título del PR, la coherencia de versiones, formato, compilación y pruebas en Windows, macOS y Linux. También comprueba la firma Windows con un certificado temporal y la generación del manifiesto con claves de prueba. Conserva un ZIP del código durante 15 días.
+`Feature validation` comprueba el título del PR, la coherencia de versiones, formato, compilación y pruebas en Windows, macOS y Linux. También comprueba la firma Windows con un certificado temporal y la generación del manifiesto con claves de prueba. Cada push a una rama de trabajo conserva un ZIP del código durante 15 días. Las validaciones completas se ejecutan en el PR o por solicitud del bot, evitando repetir la matriz por push y PR.
 
 Para features usa **Squash and merge** conservando el título convencional como mensaje del commit final. Los títulos convencionales también se validan al editar el PR. Un PR hacia `main` debe proceder de `develop`.
 
