@@ -13,7 +13,7 @@
     "format:check": "prettier --check src tests index.html vite.config.ts package.json"
   },
   "dependencies": {
-    "@wailsio/runtime": "3.0.0-beta.34",
+    "@wailsio/runtime": "3.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
