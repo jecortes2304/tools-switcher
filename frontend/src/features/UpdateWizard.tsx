@@ -201,11 +201,19 @@ export function UpdateWizard({ controller, version }: { controller: AppUpdate; v
       <p className="hint update-assurance">
         {ready
           ? 'Al reiniciar se aplicará la actualización. Tus preferencias y JDKs se conservarán.'
-          : 'La descarga se verifica con la firma de tools-switcher antes de preparar la instalación.'}
+          : state === 'up-to-date'
+            ? 'No hay actualizaciones pendientes. Puedes seguir usando tools-switcher.'
+            : 'La descarga se verifica con la firma de tools-switcher antes de preparar la instalación.'}
       </p>
       <div className="dialog-actions update-actions">
         <button onClick={hide}>
-          {active ? 'Ocultar' : ready ? 'Reiniciar más tarde' : 'Más tarde'}
+          {active
+            ? 'Ocultar'
+            : ready
+              ? 'Reiniciar más tarde'
+              : state === 'available'
+                ? 'Más tarde'
+                : 'Cerrar'}
         </button>
         <button
           className="primary grow"
