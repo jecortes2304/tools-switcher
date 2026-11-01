@@ -1,16 +1,27 @@
 name: Feature validation
 on:
+  workflow_dispatch:
   push:
     branches-ignore: [main, develop]
   pull_request:
     branches: [develop, main]
+    types: [opened, synchronize, reopened, edited, ready_for_review]
 permissions:
   contents: read
 concurrency:
-  group: feature-${{ github.head_ref || github.ref_name }}
+  group: feature-${{ github.head_ref || github.ref_name }}${{ github.event.action == 'edited' && '-title' || '' }}
   cancel-in-progress: true
 jobs:
+  validate-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: node scripts/release.mjs title
   validate:
+    if: github.event_name != 'pull_request' || github.event.action != 'edited'
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +55,8 @@ jobs:
         run: go test ./cmd/ci -run TestWindowsSigningWithSelfSignedCertificate -count=1 -timeout 90s
         env:
           TOOLS_SWITCHER_SIGNING_TEST: '1'
+      - run: node --test scripts/release.test.mjs
+      - run: node scripts/release.mjs version
       - run: go test ./...
       - run: go test -race ./internal/...
         env:
@@ -60,6 +73,7 @@ jobs:
           retention-days: 15
           if-no-files-found: error
   validate-release:
+    if: github.event_name != 'pull_request' || github.event.action != 'edited'
     name: Validate release tooling
     runs-on: ubuntu-24.04
     timeout-minutes: 20

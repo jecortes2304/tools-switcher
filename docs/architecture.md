@@ -38,6 +38,10 @@ El servicio de escritorio configura el actualizador nativo de Wails con un prove
 
 Un temporizador propio respeta las preferencias persistidas. La comprobación automática comienza ocho segundos después del arranque y se repite cada seis horas mientras la aplicación siga abierta. Las nuevas versiones emiten una notificación nativa y se instalan desde Ajustes. El reinicio se bloquea cuando hay instalaciones JDK en curso.
 
+El frontend mantiene un solo controlador del actualizador, independiente de la pestaña abierta. El asistente React muestra novedades como texto seguro y recibe estado, bytes, tamaño y velocidad capturados de los eventos de Wails. No se utiliza la ventana predeterminada del framework. Aplazar u ocultar la ventana no cancela la descarga; la sustitución se realiza con el reinicio explícito del usuario.
+
+El versionado usa la estrategia simple de Release Please y un manifiesto inicial. El bot prepara los archivos de versión en develop y nuestra pipeline conserva la responsabilidad de firmar, crear el tag y publicar. `scripts/release.mjs` valida títulos, coherencia y candidatos, solicita comprobaciones explícitas para los PRs del bot y sincroniza el commit publicado sin force-push. Las notas publicadas y el manifiesto se generan desde una única sección de CHANGELOG.md.
+
 ## Validación
 
 - Pruebas Go: catálogos, integridad, persistencia, cancelación, extracción y entorno simulado.

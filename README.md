@@ -18,6 +18,7 @@ Construida con Go, Wails 3 y React con TypeScript. El identificador de aplicaci�
 - Temas oscuro, claro y del sistema.
 - Carpeta vault configurable, inicio con la sesión y cierre a la bandeja.
 - Comprobación periódica, notificación nativa y actualizaciones firmadas de la aplicación.
+- Asistente de actualización con novedades, porcentaje de descarga, velocidad, reintento y reinicio aplazable.
 
 Las actualizaciones se habilitan en las compilaciones que incorporan la clave pública de publicación. El desarrollo local funciona sin claves ni certificados.
 
@@ -153,6 +154,8 @@ wails3 generate bindings -ts -i
 npm --prefix frontend run build
 go test ./...
 go vet ./...
+node --test scripts/release.test.mjs
+node scripts/release.mjs version
 cd frontend
 npx playwright install chromium
 npm run test:ui
@@ -164,16 +167,100 @@ Las pruebas UI usan un backend simulado y comprueban navegación, búsqueda, sel
 
 En Windows, después de compilar, `$env:TOOLS_SWITCHER_NATIVE_TEST="1"; go test -run TestNativeSmoke -count=1 -timeout 90s .` comprueba el puente real de Wails y el catálogo público de Adoptium con configuración aislada. Requiere internet y WebView2; no activa JDKs ni modifica PATH.
 
-## Ramas y distribución
+## Pipeline: desde una feature hasta la actualización instalada
 
-- `feature/*` y PRs: validación y ZIP del código con retención de 15 días.
-- `develop`: binarios Windows x64, macOS ARM64 y Linux x64 como artefactos de Actions durante 15 días.
-- `main`: validación, binarios, instalador de Windows, DMG, AppImage, DEB, RPM, checksums y manifiesto firmado; publica una GitHub Release cuando todos los trabajos terminan correctamente.
+### Preparación inicial del repositorio
 
-La versión de publicación se obtiene de `VERSION`. Incrementa este archivo antes de cada release. No se publican dos versiones con el mismo tag.
+Las ramas permanentes son **develop** y **main**. Los workflows usan `GITHUB_TOKEN`; no necesitan un PAT ni nuevas claves de firma para el versionado.
 
-La configuración de claves y certificado está explicada en [Publicación y credenciales](docs/releases.md). macOS se distribuye con firma ad hoc y sin notarización; no requiere Apple Developer y Gatekeeper puede solicitar una autorización manual.
+En **Settings → Actions → General → Workflow permissions**, activa **Allow GitHub Actions to create and approve pull requests**. GitHub agrupa la creación y aprobación en esa opción; nuestros workflows solo crean PRs y no los aprueban ni fusionan automáticamente. Los permisos de escritura se conceden únicamente a los jobs que preparan la release o la publican.
+
+Conserva las claves y el certificado indicados en [Publicación y credenciales](docs/releases.md). El repositorio o el alojamiento del manifiesto y de los archivos de actualización debe ser accesible para la app sin iniciar sesión. No cambies la clave del actualizador entre versiones.
+
+### 1. Crear una feature
+
+```sh
+git fetch origin --prune
+git switch develop
+git pull --ff-only origin develop
+git switch -c feature/mi-cambio
+```
+
+Haz los cambios, ejecuta las comprobaciones y crea commits y un PR con un título convencional, por ejemplo `feat(updater): añadir asistente de actualización`. **No edites VERSION manualmente.**
+
+| Título o commit | Resultado previsto |
+| --- | --- |
+| `fix: corregir un error` | Incrementa patch: 0.1.0 → 0.1.1 |
+| `feat: añadir una funcionalidad` | Incrementa minor: 0.1.0 → 0.2.0 |
+| `docs: mejorar documentación` | No publica una versión por sí solo |
+| `chore: mantener herramientas` | No publica una versión por sí solo |
+| `feat!: cambio incompatible` o pie `BREAKING CHANGE:` | Antes de 1.0 incrementa minor; desde 1.0 incrementa major |
+
+La versión refleja el conjunto de cambios desde la última publicación: varios fixes y una feature producen una sola versión minor. El nombre de la rama no decide el incremento. Los cambios técnicos que deban publicarse deben describirse con el tipo correspondiente a su efecto, por ejemplo `fix(ci): corregir generación de instaladores`.
+
+### 2. Validar e integrar en develop
+
+`Feature validation` comprueba el título del PR, la coherencia de versiones, formato, compilación y pruebas en Windows, macOS y Linux. También comprueba la firma Windows con un certificado temporal y la generación del manifiesto con claves de prueba. Conserva un ZIP del código durante 15 días.
+
+Para features usa **Squash and merge** conservando el título convencional como mensaje del commit final. Los títulos convencionales también se validan al editar el PR. Un PR hacia `main` debe proceder de `develop`.
+
+El merge en **develop** inicia dos procesos independientes:
+
+- **Desktop builds and releases** genera los binarios de desarrollo para Windows x64, macOS ARM64 y Linux x64. Se descargan desde **Actions → ejecución → Artifacts** y se conservan 15 días. No se publica una release estable ni se crean instaladores de producción desde develop.
+- **Prepare release** analiza los commits y mantiene un PR del bot hacia develop, por ejemplo **chore(develop): release 0.2.0**. Actualiza `VERSION`, `.release-please-manifest.json`, los metadatos del frontend y `CHANGELOG.md`. Mientras esté abierto se irá actualizando con nuevas features y fixes.
+
+Los PRs creados con `GITHUB_TOKEN` no disparan normalmente otro workflow por sí solos. Por eso el bot solicita explícitamente `Feature validation` con `workflow_dispatch` sobre su rama; no hace falta un token personal. El título de ese PR sigue siendo convencional.
+
+### 3. Aprobar la versión que saldrá
+
+Abre el PR de release del bot. Revisa el número propuesto, las notas y sus comprobaciones. Puedes seguir integrando features antes de fusionarlo: el bot recalculará la propuesta.
+
+Cuando esté listo, **fusiona el PR de release en develop**. Ese merge prepara el candidato; todavía no publica. Desde ese momento promueve ese candidato a main antes de integrar nuevas features en develop. El bot no prepara otra versión mientras esta siga pendiente de publicación.
+
+### 4. Promover develop a main
+
+Crea un PR con **base main** y **compare develop**, revisa las comprobaciones y fusiónalo con **Create a merge commit**. Evita squash/rebase para promociones y sincronizaciones entre las ramas permanentes: necesitamos conservar los commits y los tags de las releases en el historial.
+
+La pipeline de main verifica que los números coincidan, que exista un PR de release revisado, que el árbol de archivos corresponda a ese candidato y que el tag no exista ya. Así se evita publicar una versión sin preparar o incorporar cambios posteriores sin documentar.
+
+### 5. Construir, firmar y publicar
+
+`Desktop builds and releases` ejecuta:
+
+1. **prepare:** valida candidato, versión y credenciales.
+2. **build:** compila en paralelo sobre runners nativos de Windows, macOS y Linux, ejecuta las pruebas y genera los artefactos de cada sistema.
+3. **release:** reúne esos archivos, genera el manifiesto con las notas de esa versión en `CHANGELOG.md`, firma y verifica los artefactos de actualización y calcula `SHA256SUMS`. Crea el tag `vX.Y.Z` y una GitHub Release en borrador, carga todos los archivos y finalmente la publica.
+4. **sync-release:** marca el PR del bot como publicado y sincroniza develop con el commit publicado de main mediante avance rápido, sin forzar el historial. Si ya hay commits nuevos en develop o la protección de ramas impide hacerlo, abre un PR main → develop para que lo revises y fusiones antes de preparar otra versión.
+
+Cada job usa una máquina nueva. La preparación de herramientas y los paquetes de Linux pueden tardar varios minutos aunque la compilación Go sea rápida. El job release espera a las tres plataformas. La publicación estable solo aparece cuando todos los artefactos están listos.
+
+| Plataforma | Descarga para actualizar | Instalación inicial |
+| --- | --- | --- |
+| Windows x64 | EXE firmado | Setup EXE |
+| macOS ARM64 | ZIP con app | DMG |
+| Linux x64 | TAR.GZ portable | AppImage, DEB y RPM |
+
+macOS utiliza firma ad hoc sin notarización. El certificado Windows autofirmado sirve para pruebas, pero no elimina SmartScreen. Linux instalado por DEB/RPM se actualiza con el gestor de paquetes; el AppImage se sustituye completo.
+
+### 6. Probar desde una versión instalada
+
+Conserva instalada la versión anterior y las mismas claves de actualización. En la app activa **Ajustes → Buscar actualizaciones** y permite las notificaciones del sistema. Debe estar abierta o en la bandeja.
+
+La búsqueda automática ocurre ocho segundos después del arranque y cada seis horas. Para probar inmediatamente pulsa **Ajustes → Abrir asistente de actualización → Buscar actualizaciones**. Cuando encuentre una versión superior, el asistente muestra el salto de versión y las novedades. **Descargar e instalar** inicia la descarga, muestra porcentaje y velocidad cuando el servidor comunica el tamaño, verifica la firma y prepara la sustitución. Puedes ocultar el asistente sin interrumpir el proceso. Si falla, muestra el error y permite reintentar. **Reiniciar ahora** aplica la actualización y vuelve a abrir la app; **Reiniciar más tarde** conserva el estado preparado durante esa sesión.
+
+El reinicio y la preparación se bloquean mientras haya instalaciones JDK activas. El actualizador conserva preferencias e inventario. Una firma inválida impide aplicar la descarga.
+
+Para probar este cambio desde **0.1.0**, integra primero la feature en develop, espera el PR automático de **0.2.0**, fusiónalo y promueve develop a main. La 0.1.0 descargará esa primera actualización con sus controles antiguos de Ajustes; después de reiniciar ya tendrá el asistente nuevo. Para ver una notificación inmediata puedes salir completamente desde la bandeja y abrir de nuevo tras publicar la release.
+
+### Recuperación de una pipeline fallida
+
+- **Falla una feature:** corrige su rama; el PR se vuelve a validar.
+- **Falla un build de main:** no se publica la release; consulta el job que falló. Los artefactos de otros jobs pueden existir en Actions.
+- **Falla release antes de publicar:** revisa el fallo y cualquier borrador incompleto. No elimines ni reutilices versiones ya publicadas.
+- **Cambias el workflow para corregirlo:** integra la corrección y ejecuta el commit nuevo. Reejecutar un job antiguo conserva su workflow antiguo.
+- **Falla Prepare release por permisos:** revisa la opción de creación de PRs y vuelve a ejecutar ese workflow sobre develop.
+- **Aparece un PR de sincronización main → develop:** fusiónalo con merge commit antes de preparar otra release. El bot no hace force-push ni descarta commits nuevos.
 
 ## Alcance actual
 
-El proveedor integrado es Temurin; otros proveedores se pueden exponer con un manifiesto propio o incorporar mediante adaptadores. El catálogo usa paquetes portables ZIP/TAR.GZ, no instaladores MSI de JDKs. Las actualizaciones de tools-switcher reemplazan el ejecutable o bundle de usuario; las instalaciones Linux gestionadas por DEB/RPM deben actualizarse mediante su gestor de paquetes.
+Hay diez proveedores incluidos; otros se pueden exponer con un manifiesto propio o incorporar mediante adaptadores. El catálogo usa paquetes portables ZIP/TAR.GZ, no instaladores MSI de JDKs. Las actualizaciones de tools-switcher reemplazan el ejecutable o bundle de usuario; las instalaciones Linux gestionadas por DEB/RPM deben actualizarse mediante su gestor de paquetes.

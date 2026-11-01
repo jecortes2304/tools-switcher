@@ -208,6 +208,9 @@ func windowsSignTool() (string, error) {
 	return "", errors.New("signtool.exe no encontrado; instala Windows SDK o añade su carpeta al PATH")
 }
 func release() {
+	notes, err := releaseNotes(version)
+	must(err)
+	must(os.WriteFile("artifacts/release-notes.md", []byte(notes), 0644))
 	key, err := base64.StdEncoding.DecodeString(os.Getenv("UPDATER_PRIVATE_KEY_BASE64"))
 	must(err)
 	if len(key) == 0 {
@@ -220,7 +223,7 @@ func release() {
 	_, err = temp.Write(key)
 	must(err)
 	must(temp.Close())
-	run("wails3", "updater", "manifest", "-version", version, "-channel", "stable", "-key", name, "-name", "tools-switcher "+version, "-url-prefix", "https://github.com/jecortes2304/tools-switcher/releases/download/v"+version, "-output", "artifacts/manifest.json", "artifacts/updates")
+	run("wails3", "updater", "manifest", "-version", version, "-channel", "stable", "-key", name, "-name", "tools-switcher "+version, "-url-prefix", "https://github.com/jecortes2304/tools-switcher/releases/download/v"+version, "-notes-file", "artifacts/release-notes.md", "-output", "artifacts/manifest.json", "artifacts/updates")
 	public, err := base64.StdEncoding.DecodeString(os.Getenv("UPDATER_PUBLIC_KEY_BASE64"))
 	must(err)
 	pub, err := os.CreateTemp("", "tools-switcher-*.pub")
@@ -291,4 +294,29 @@ func syncMetadata() {
 		changed = regexp.MustCompile(`(?s)(<key>CFBundle(?:ShortVersionString|Version)</key>\s*<string>)[^<]+(</string>)`).ReplaceAllString(string(data), `${1}`+version+`${2}`)
 		must(os.WriteFile(file, []byte(changed), 0644))
 	}
+}
+
+func releaseNotes(target string) (string, error) {
+	data, err := os.ReadFile("CHANGELOG.md")
+	if err != nil {
+		return "", err
+	}
+	heading := regexp.MustCompile(`^## \[?(\d+\.\d+\.\d+)(?:\]|\s|$)`)
+	collecting := false
+	lines := []string{}
+	for _, line := range strings.Split(string(data), "\n") {
+		if match := heading.FindStringSubmatch(line); match != nil {
+			if collecting {
+				break
+			}
+			collecting = match[1] == target
+		}
+		if collecting {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) < 2 || strings.TrimSpace(strings.Join(lines[1:], "\n")) == "" {
+		return "", fmt.Errorf("faltan notas para %s en CHANGELOG.md; integra el PR de release", target)
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n")) + "\n", nil
 }

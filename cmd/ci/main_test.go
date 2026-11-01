@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -43,6 +44,9 @@ func TestReleaseManifestAndChecksums(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if err = os.WriteFile("CHANGELOG.md", []byte("# Changelog\n\n## [1.2.3]\n\n### Features\n\n* Update wizard\n\n## 1.2.2\n\nOld notes\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	release()
 	data, err := os.ReadFile("artifacts/manifest.json")
 	if err != nil {
@@ -50,6 +54,7 @@ func TestReleaseManifestAndChecksums(t *testing.T) {
 	}
 	var manifest struct {
 		Version   string `json:"version"`
+		Notes     string `json:"notes"`
 		Artifacts []struct {
 			Signature string `json:"signature"`
 			Platform  string `json:"platform"`
@@ -59,7 +64,7 @@ func TestReleaseManifestAndChecksums(t *testing.T) {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Version != "1.2.3" || len(manifest.Artifacts) != 3 {
+	if manifest.Version != "1.2.3" || len(manifest.Artifacts) != 3 || !strings.Contains(manifest.Notes, "Update wizard") || strings.Contains(manifest.Notes, "Old notes") {
 		t.Fatal("wrong update manifest")
 	}
 	for _, artifact := range manifest.Artifacts {
@@ -70,5 +75,17 @@ func TestReleaseManifestAndChecksums(t *testing.T) {
 	sums, err := os.ReadFile("artifacts/SHA256SUMS")
 	if err != nil || len(sums) == 0 {
 		t.Fatal("checksums missing")
+	}
+}
+
+func TestReleaseNotesRequireMatchingNonemptyVersion(t *testing.T) {
+	t.Chdir(t.TempDir())
+	for _, content := range []string{"## 1.2.2\nOld", "## 1.2.3\n\n## 1.2.2\nOld"} {
+		if err := os.WriteFile("CHANGELOG.md", []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := releaseNotes("1.2.3"); err == nil {
+			t.Fatal("missing or empty notes accepted")
+		}
 	}
 }
