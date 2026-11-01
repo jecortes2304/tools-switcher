@@ -1,0 +1,41 @@
+name: Prepare release
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+concurrency:
+  group: prepare-release-develop
+  cancel-in-progress: false
+jobs:
+  release-pr:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: "24"
+      - id: plan
+        run: node scripts/release.mjs plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - id: release
+        if: steps.plan.outputs.ready == 'true'
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+        with:
+          target-branch: develop
+          skip-github-release: true
+      - if: steps.release.outputs.prs_created == 'true'
+        run: node scripts/release.mjs validate-prs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_PRS: ${{ steps.release.outputs.prs }}

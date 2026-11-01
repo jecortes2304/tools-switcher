@@ -12,7 +12,7 @@ La matriz inicial es Windows amd64, macOS arm64 y Linux amd64. El núcleo admite
 
 `develop` produce artefactos sin certificados. `main` exige claves de actualizaciones y certificado Windows, construye instaladores y publica la release solo después de verificar los artefactos de todas las plataformas.
 
-La versión se lee de `VERSION` y se aplica al binario y sus metadatos durante la compilación. El tag es `vX.Y.Z`. Antes de promover otra release, incrementa `VERSION` en una feature y lleva el cambio a `develop` y después a `main`.
+La versión se lee de `VERSION`, que actualiza el PR automático de Release Please junto con `CHANGELOG.md` y el manifiesto de versiones. No se incrementa manualmente en las features. Revisa y fusiona el PR de release en develop y promueve ese candidato a main. El tag es `vX.Y.Z`. El recorrido completo está en [README](../README.md#pipeline-desde-una-feature-hasta-la-actualización-instalada).
 
 ## Configuración en GitHub
 
@@ -87,8 +87,10 @@ Si falla una publicación después de crear el borrador, revisa y elimina solo e
 ## Pendiente antes de la primera release
 
 1. Configurar los cuatro valores de la tabla.
-2. Revisar `docs/release-notes.md`.
+2. Activar la creación de PRs de Actions y revisar el PR de Release Please. Las notas se extraen de la sección correspondiente de `CHANGELOG.md`.
 3. Probar las builds de `develop` en los sistemas de destino, especialmente macOS y Linux.
 4. Fusionar la versión elegida en `main` para iniciar la publicación.
 
 Las features y builds de desarrollo no necesitan esos secretos.
+
+El bot usa `GITHUB_TOKEN` y dispara explícitamente las comprobaciones de sus PRs mediante `workflow_dispatch`. No necesita PAT. Después de publicar, limpia las etiquetas pendientes del PR de release y sincroniza main con develop sin forzar el historial; si hay divergencia crea un PR de sincronización.

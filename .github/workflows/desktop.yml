@@ -12,6 +12,9 @@ jobs:
   prepare:
     if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -21,6 +24,11 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version-file: go.mod
+      - run: node scripts/release.mjs version
+      - if: github.ref == 'refs/heads/main'
+        run: node scripts/release.mjs publish
+        env:
+          GH_TOKEN: ${{ github.token }}
       - id: version
         run: go run ./cmd/ci preflight
         env:
@@ -123,5 +131,22 @@ jobs:
         run: |
           gh release create "v$RELEASE_VERSION" --target "$GITHUB_SHA" --title "tools-switcher $RELEASE_VERSION" --draft --generate-notes
           gh release upload "v$RELEASE_VERSION" artifacts/updates/* artifacts/packages/* artifacts/manifest.json artifacts/SHA256SUMS
-          gh release edit "v$RELEASE_VERSION" --notes-file docs/release-notes.md
+          gh release edit "v$RELEASE_VERSION" --notes-file artifacts/release-notes.md
           gh release edit "v$RELEASE_VERSION" --draft=false --latest
+
+  sync-release:
+    if: github.ref == 'refs/heads/main'
+    needs: [prepare, release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - run: node scripts/release.mjs sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}

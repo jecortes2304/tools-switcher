@@ -6,4 +6,9 @@ export interface UpdateStatus {
     "version": string;
     "error": string;
     "configured": boolean;
+    "notes": string;
+    "written": number;
+    "total": number;
+    "rate": number;
+    "errorStage": string;
 }

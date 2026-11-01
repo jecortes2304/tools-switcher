@@ -21,10 +21,15 @@ import (
 )
 
 type UpdateStatus struct {
-	Status     string `json:"status"`
-	Version    string `json:"version"`
-	Error      string `json:"error"`
-	Configured bool   `json:"configured"`
+	Status     string  `json:"status"`
+	Version    string  `json:"version"`
+	Error      string  `json:"error"`
+	Configured bool    `json:"configured"`
+	Notes      string  `json:"notes"`
+	Written    int64   `json:"written"`
+	Total      int64   `json:"total"`
+	Rate       float64 `json:"rate"`
+	ErrorStage string  `json:"errorStage"`
 }
 type Service struct {
 	manager         *manager.Manager
@@ -51,11 +56,15 @@ func Attach(s *Service, app *application.App, n *notifications.NotificationServi
 func (s *Service) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	if s.key != "" {
+		for _, eventName := range []string{updater.EventCheckStarted, updater.EventUpdateAvailable, updater.EventNoUpdate, updater.EventDownloadStarted, updater.EventDownloadProgress, updater.EventVerifying, updater.EventInstalling, updater.EventUpdateReady, updater.EventError} {
+			name := eventName
+			s.app.Event.On(name, func(event *application.CustomEvent) { s.captureUpdateEvent(name, event.Data) })
+		}
 		feed, err := endpoint.New(endpoint.Config{URL: "https://github.com/jecortes2304/tools-switcher/releases/latest/download/manifest.json", Channel: "stable"})
 		if err != nil {
 			return err
 		}
-		if err = s.app.Updater.Init(updater.Config{CurrentVersion: s.version, PublicKey: []byte(s.key), Providers: []updater.Provider{signedProvider{feed}}}); err != nil {
+		if err = s.app.Updater.Init(updater.Config{CurrentVersion: s.version, PublicKey: []byte(s.key), Providers: []updater.Provider{signedProvider{feed}}, Window: updater.WindowNone}); err != nil {
 			return err
 		}
 	}
@@ -181,6 +190,8 @@ func (s *Service) CheckUpdates() (UpdateStatus, error) {
 	notify := release != nil && s.lastNotified != release.Version
 	if release != nil {
 		s.update.Version = release.Version
+		s.update.Notes = release.Notes
+		s.update.Total = release.Artifact.Size
 		if notify {
 			s.lastNotified = release.Version
 		}
@@ -213,6 +224,13 @@ func (s *Service) InstallUpdate() error {
 	}
 	if s.key == "" {
 		return errors.New("actualizaciones sin configurar")
+	}
+	if s.app.Updater.State() == updater.StateError {
+		ctx, cancel := context.WithTimeout(s.ctx, 45*time.Second)
+		defer cancel()
+		if _, err := s.app.Updater.Check(ctx); err != nil {
+			return err
+		}
 	}
 	return s.app.Updater.DownloadAndInstall(s.ctx)
 }

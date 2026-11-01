@@ -773,3 +773,98 @@ dialog p {
   color: var(--cyan);
   margin: 6px 0;
 }
+
+.update-hero {
+  text-align: center;
+  padding: 8px 0 15px;
+}
+.update-symbol {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  border-radius: 20px;
+  font-size: 34px;
+  background: var(--inset);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+}
+.update-hero h3 {
+  font-size: 19px;
+  margin: 0;
+}
+.update-hero p {
+  min-height: 18px;
+}
+.update-versions {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.update-versions strong {
+  color: var(--cyan);
+}
+.update-progress {
+  padding: 14px;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+}
+.update-progress progress {
+  height: 8px;
+}
+.update-progress p {
+  margin-bottom: 0;
+}
+.update-notes {
+  margin-top: 16px;
+}
+.update-notes h3 {
+  font-size: 12px;
+  color: var(--muted);
+}
+.release-notes {
+  max-height: 160px;
+  overflow: auto;
+  padding: 0 12px;
+  border-left: 2px solid var(--cyan);
+  overflow-wrap: anywhere;
+}
+.release-notes h4 {
+  font-size: 12px;
+  margin: 12px 0 6px;
+}
+.release-notes p {
+  margin: 6px 0;
+  line-height: 1.6;
+}
+.update-assurance {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.update-actions {
+  position: sticky;
+  bottom: -17px;
+  padding: 10px 0;
+  background: var(--surface);
+}
+.update-symbol.is-active {
+  animation: update-pulse 1.8s ease-in-out infinite;
+}
+@keyframes update-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-symbol.is-active {
+    animation: none;
+  }
+}
