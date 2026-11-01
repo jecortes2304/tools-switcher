@@ -221,7 +221,7 @@ Cuando esté listo, **fusiona el PR de release en develop**. Ese merge prepara e
 
 Crea un PR con **base main** y **compare develop**, revisa las comprobaciones y fusiónalo con **Create a merge commit**. Evita squash/rebase para promociones y sincronizaciones entre las ramas permanentes: necesitamos conservar los commits y los tags de las releases en el historial.
 
-La pipeline de main verifica que los números coincidan, que exista un PR de release revisado, que el árbol de archivos corresponda a ese candidato y que el tag no exista ya. Así se evita publicar una versión sin preparar o incorporar cambios posteriores sin documentar.
+La pipeline de main verifica que los números coincidan, que exista un PR de release revisado, que el código de la aplicación corresponda a ese candidato y que el tag no exista ya. Se permiten correcciones de pipeline, scripts de publicación y documentación posteriores al candidato para poder recuperar una publicación fallida. Así se evita publicar una versión sin preparar o incorporar cambios posteriores sin documentar.
 
 ### 5. Construir, firmar y publicar
 
@@ -259,7 +259,7 @@ Para probar este cambio desde **0.1.0**, integra primero la feature en develop, 
 - **Falla una feature:** corrige su rama; el PR se vuelve a validar.
 - **Falla un build de main:** no se publica la release; consulta el job que falló. Los artefactos de otros jobs pueden existir en Actions.
 - **Falla release antes de publicar:** revisa el fallo y cualquier borrador incompleto. No elimines ni reutilices versiones ya publicadas.
-- **Cambias el workflow para corregirlo:** integra la corrección y ejecuta el commit nuevo. Reejecutar un job antiguo conserva su workflow antiguo.
+- **Cambias el workflow para corregirlo:** integra la corrección y ejecuta el commit nuevo. Las correcciones de CI y documentación no requieren preparar otra versión antes de la primera publicación de ese candidato. Reejecutar un job antiguo conserva su workflow antiguo. Si necesitas cambiar el código de la app después de aprobar el candidato y antes de publicarlo, revierte primero el PR de versión en develop y retira su etiqueta `autorelease: pending`; integra la corrección y espera la propuesta nueva del bot.
 - **Falla Prepare release por permisos:** revisa la opción de creación de PRs y vuelve a ejecutar ese workflow sobre develop.
 - **Aparece un PR de sincronización main → develop:** fusiónalo con merge commit antes de preparar otra release. El bot no hace force-push ni descarta commits nuevos.
 

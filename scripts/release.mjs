@@ -186,7 +186,9 @@ export async function main(command) {
     const comparison = await github(
       `/compare/${candidate.merge_commit_sha}...${process.env.GITHUB_SHA}`,
     );
-    if (comparison.files.length !== 0)
+    const maintenance =
+      /^(?:\.github\/|scripts\/|cmd\/ci\/|docs\/|README\.md$|\.gitignore$|\.gitattributes$)/;
+    if (comparison.files.some((file) => !maintenance.test(file.filename)))
       throw new Error(
         "Hay cambios posteriores al PR de release. Publica el candidato revisado antes de integrar más features.",
       );
