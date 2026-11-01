@@ -3,6 +3,7 @@ import { api, errorMessage, type Run, type Snapshot } from './app/api'
 import { JDKs } from './features/JDKs'
 import { Repositories } from './features/Repositories'
 import { Settings } from './features/Settings'
+import { UpdateWizard, useAppUpdate } from './features/UpdateWizard'
 import './styles.css'
 
 const tabs = [
@@ -12,6 +13,7 @@ const tabs = [
 ]
 
 export default function App() {
+  const updater = useAppUpdate()
   const [tab, setTab] = useState('jdks')
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [version, setVersion] = useState('0.1.0')
@@ -111,7 +113,9 @@ export default function App() {
             {tab === 'repositories' && (
               <Repositories repositories={snapshot.repositories ?? []} run={run} />
             )}
-            {tab === 'settings' && <Settings snapshot={snapshot} run={run} version={version} />}
+            {tab === 'settings' && (
+              <Settings snapshot={snapshot} run={run} version={version} updater={updater} />
+            )}
           </>
         )}
       </main>
@@ -135,6 +139,7 @@ export default function App() {
           </button>
         ))}
       </nav>
+      <UpdateWizard controller={updater} version={version} />
       {message && (
         <div
           className={`toast ${message.error ? 'toast-error' : ''}`}

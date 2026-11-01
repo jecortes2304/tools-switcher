@@ -1,41 +1,19 @@
-import { useEffect, useState } from 'react'
 import { Clipboard } from '@wailsio/runtime'
-import {
-  api,
-  type Run,
-  type Settings as Preferences,
-  type Snapshot,
-  type UpdateStatus,
-} from '../app/api'
+import { api, type Run, type Settings as Preferences, type Snapshot } from '../app/api'
 import { Toggle } from '../components/ui'
+import { updateDescription, type AppUpdate } from './UpdateWizard'
 
 export function Settings({
   snapshot,
   run,
   version,
+  updater,
 }: {
   snapshot: Snapshot
   run: Run
   version: string
+  updater: AppUpdate
 }) {
-  const [update, setUpdate] = useState<UpdateStatus | null>(null)
-  const [working, setWorking] = useState(false)
-  useEffect(() => {
-    let active = true
-    const refresh = () =>
-      api
-        .UpdateStatus()
-        .then((v) => {
-          if (active) setUpdate(v)
-        })
-        .catch(() => {})
-    void refresh()
-    const timer = setInterval(refresh, 1500)
-    return () => {
-      active = false
-      clearInterval(timer)
-    }
-  }, [])
   const settings = snapshot.settings
   const save = (patch: Partial<Preferences>) =>
     run(() => api.SaveSettings({ ...settings, ...patch }), 'Preferencias guardadas')
@@ -166,42 +144,9 @@ export function Settings({
           <h2>tools-switcher</h2>
           <span className="badge mono">v{version}</span>
         </div>
-        <p className="hint">
-          {!update?.configured
-            ? 'Las actualizaciones firmadas estarán disponibles cuando se configure la clave de publicación.'
-            : ({
-                'up-to-date': 'Ya tienes la última versión.',
-                available: `Nueva versión disponible: ${update.version}`,
-                checking: 'Buscando actualizaciones…',
-                downloading: 'Descargando actualización…',
-                verifying: 'Verificando firma…',
-                installing: 'Instalando…',
-                ready: 'Actualización preparada. Reinicia para terminar.',
-              }[update.status] ?? 'Actualizaciones verificadas mediante firma digital.')}
-        </p>
-        {update?.error && <p className="error-message">{update.error}</p>}
-        <button
-          className="full"
-          disabled={
-            working ||
-            !update?.configured ||
-            ['checking', 'downloading', 'verifying', 'installing'].includes(update?.status ?? '')
-          }
-          onClick={async () => {
-            setWorking(true)
-            await run(async () => {
-              if (update?.status === 'ready') await api.Restart()
-              else if (update?.status === 'available') await api.InstallUpdate()
-              else setUpdate(await api.CheckUpdates())
-            })
-            setWorking(false)
-          }}
-        >
-          {update?.status === 'ready'
-            ? 'Reiniciar tools-switcher'
-            : update?.status === 'available'
-              ? 'Descargar e instalar'
-              : 'Comprobar actualizaciones'}
+        <p className="hint">{updateDescription(updater.update)}</p>
+        <button className="full" onClick={updater.show}>
+          Abrir asistente de actualización
         </button>
       </section>
       <p className="footnote">Tu entorno, bajo control.</p>

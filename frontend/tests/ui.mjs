@@ -83,6 +83,19 @@ state.repositories.push({
 })
 let preferencesShown = false
 let queued = []
+let updateState = {
+  status: 'idle',
+  version: '',
+  notes: '',
+  error: '',
+  errorStage: '',
+  configured: false,
+  written: 0,
+  total: 0,
+  rate: 0,
+}
+let updateInstalls = 0
+let restarted = false
 const errors = []
 const server = createServer(async (req, res) => {
   try {
@@ -115,8 +128,29 @@ const server = createServer(async (req, res) => {
       else if (method === 'SaveSettings') state.settings = args[0]
       else if (method === 'Activate')
         state.activePath = state.installations.find((i) => i.id === args[0]).path
-      else if (method === 'UpdateStatus')
-        result = { status: 'idle', version: '', error: '', configured: false }
+      else if (method === 'UpdateStatus') result = updateState
+      else if (method === 'CheckUpdates') {
+        updateState = {
+          ...updateState,
+          configured: true,
+          status: 'available',
+          version: '0.2.0',
+          notes:
+            '## 0.2.0\n### Novedades\n* Asistente de actualización\n* Descarga verificada y reinicio cuando quieras',
+        }
+        result = updateState
+      } else if (method === 'InstallUpdate') {
+        updateInstalls++
+        updateState = {
+          ...updateState,
+          status: 'downloading',
+          error: '',
+          errorStage: '',
+          written: 37 * 1024 * 1024,
+          total: 100 * 1024 * 1024,
+          rate: 2 * 1024 * 1024,
+        }
+      } else if (method === 'Restart') restarted = true
       else if (method === 'Variables') result = [{ name: 'JAVA_HOME', value: '' }]
       else if (method === 'AddRepository')
         state.repositories.push({
@@ -222,6 +256,68 @@ try {
   await page.locator('dialog').waitFor({ state: 'detached' })
   assert.equal(state.installations.length, 1)
   await page.setViewportSize({ width: 360, height: 500 })
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+  updateState = { ...updateState, configured: true }
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click()
+  await page.getByRole('button', { name: 'Abrir asistente de actualización' }).click()
+  await page.getByRole('button', { name: 'Buscar actualizaciones', exact: true }).click()
+  await page.getByRole('button', { name: 'Descargar e instalar', exact: true }).waitFor()
+  await page.getByText('Novedades de esta versión', { exact: true }).waitFor()
+  await page.waitForTimeout(850)
+  assert.equal(await page.evaluate(() => window.__untrusted), undefined)
+  await screenshot('update-available-light')
+  await page.getByRole('button', { name: 'Más tarde', exact: true }).click()
+  await page.waitForTimeout(850)
+  assert.equal(await page.locator('dialog').count(), 0)
+  await page.getByRole('button', { name: '☾ Obsidian' }).click()
+  await page.getByRole('button', { name: 'Abrir asistente de actualización' }).click()
+  await screenshot('update-available-dark')
+  const originalNotes = updateState.notes
+  updateState = { ...updateState, notes: '<script>window.__untrusted = true</script>' }
+  await page
+    .getByRole('dialog')
+    .getByText('<script>window.__untrusted = true</script>', { exact: true })
+    .waitFor()
+  assert.equal(await page.evaluate(() => window.__untrusted), undefined)
+  updateState = { ...updateState, notes: originalNotes }
+  await page.getByRole('button', { name: 'Descargar e instalar', exact: true }).click()
+  await page.getByText('37 %', { exact: true }).waitFor()
+  await screenshot('update-downloading-dark')
+  await page.getByRole('button', { name: 'Ocultar', exact: true }).click()
+  assert.equal(updateState.status, 'downloading')
+  await page.getByRole('button', { name: 'Abrir asistente de actualización' }).click()
+  updateState = {
+    ...updateState,
+    status: 'error',
+    error: 'La firma de la actualización no es válida.',
+    errorStage: 'verify',
+  }
+  await page.getByRole('alert').filter({ hasText: 'La firma de la actualización' }).waitFor()
+  await screenshot('update-error-dark')
+  await page.getByRole('button', { name: 'Reintentar descarga', exact: true }).click()
+  await page.getByText('37 %', { exact: true }).waitFor()
+  assert.equal(updateInstalls, 2)
+  updateState = { ...updateState, total: 0 }
+  await page.waitForFunction(
+    () => !document.querySelector('dialog progress')?.hasAttribute('value'),
+  )
+  updateState = { ...updateState, status: 'verifying' }
+  await page
+    .getByRole('dialog')
+    .getByText('Verificando integridad y firma…', { exact: true })
+    .waitFor()
+  updateState = {
+    ...updateState,
+    status: 'ready',
+    total: 100 * 1024 * 1024,
+    written: 100 * 1024 * 1024,
+  }
+  await page.getByRole('button', { name: 'Reiniciar ahora', exact: true }).waitFor()
+  await screenshot('update-ready-dark')
+  await page.getByRole('button', { name: 'Reiniciar más tarde', exact: true }).click()
+  await page.getByRole('button', { name: 'Abrir asistente de actualización' }).click()
+  await page.getByRole('button', { name: 'Reiniciar ahora', exact: true }).click()
+  assert.equal(restarted, true)
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
   assert.deepEqual(errors, [])
   console.log(
